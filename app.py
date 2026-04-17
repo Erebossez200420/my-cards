@@ -4,7 +4,7 @@ import requests
 
 # --- ส่วนตั้งค่า (Configuration) ---
 # 1. ลิงก์ Google Sheet ที่คุณ Publish เป็น CSV (สอนวิธีทำในข้อ 2)
-SHEET_URL = "ใส่ลิงก์_CSV_ของคุณที่นี่" 
+SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJncpOFgpWjWoU0kXjPoPeqj3pvrppiy0MeBNHIP2tv7pGQREloJB4CCw0UNONN4R64W6BBJS61VTO/pub?output=csv" 
 
 # 2. API Key ของ Pokémon (ไปสมัครฟรีที่ pokemontcg.io)
 POKEMON_API_KEY = "ใส่_API_KEY_ของคุณที่นี่"

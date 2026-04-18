@@ -18,16 +18,25 @@ def get_gspread_client():
     return gspread.authorize(creds)
 
 # ฟังก์ชันดึงราคา
-def fetch_realtime_price(name, card_num):
-    query = f"{name} {card_num}".replace(" ", "+")
-    url = f"https://www.pricecharting.com/api/products?t={PRICECHARTING_TOKEN}&q={query}"
+def fetch_realtime_price(category, name, card_num):
+    # ปรับปรุง: เอา Category มาผสมกับรหัสเพื่อให้ API หาเจอแน่นอน
+    # เช่น "One Piece OP13-119"
+    search_term = f"{category} {card_num}".replace(" ", "+")
+    url = f"https://www.pricecharting.com/api/products?t={PRICECHARTING_TOKEN}&q={search_term}"
+    
     try:
         res = requests.get(url).json()
         if res.get("status") == "success" and res.get("products"):
-            price = res["products"][0].get("price-guide-details", {}).get("loose-price", 0)
+            # ดึงราคาของผลลัพธ์ตัวแรกที่เจอ
+            product = res["products"][0]
+            price = product.get("price-guide-details", {}).get("loose-price", 0)
             return float(price) / 100
-    except: return 0.0
+    except:
+        return 0.0
     return 0.0
+
+# และในตอนเรียกใช้ฟังก์ชัน (ตอนกดปุ่ม Sync):
+# ให้แก้เป็น: live_p = fetch_realtime_price(row['Category'], row['Card_Name'], row['Card_ID'])
 
 st.title("🛡️ Ultra Card Portfolio")
 

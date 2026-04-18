@@ -9,7 +9,7 @@ import time
 # สำหรับ Pokemon เราจะใช้ API ฟรีจาก pokemontcg.io
 # สำหรับ One Piece เนื่องจากไม่มี API ฟรีที่ให้ราคาตรงๆ เราจะใช้ระบบค้นหาเบื้องต้น
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJncpOFgpWjWoU0kXjPoPeqj3pvrppiy0MeBNHIP2tv7pGQREloJB4CCw0UNONN4R64W6BBJS61VTO/pub?output=csv"
-SHEET_NAME_URL = "https://docs.google.com/spreadsheets/d/1oiHsqmiqd5b159EAuIZ2DcyhjoYCpXDYftQnsVq6RRA/edit" 
+SHEET_NAME_URL = "https://docs.google.com/spreadsheets/d/1oiHsqmiqd5b159EAuIZ2DcyhjoYCpXDYftQnsVq6RRA/edit?gid=1680643019#gid=1680643019" 
 
 def get_gspread_client():
     scope = ["https://www.googleapis.com/auth/spreadsheets"]

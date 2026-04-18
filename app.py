@@ -9,7 +9,7 @@ import time
 # ใส่ข้อมูลส่วนตัวของคุณ
 PRICECHARTING_TOKEN = "c0b53bce27c1bdab90b1605249e600dc43dfd1d5"
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJncpOFgpWjWoU0kXjPoPeqj3pvrppiy0MeBNHIP2tv7pGQREloJB4CCw0UNONN4R64W6BBJS61VTO/pub?output=csv"
-SHEET_NAME_URL = "https://docs.google.com/spreadsheets/d/1Xl0iZ2XqV1q0F_0pXl0iZ2XqV1q0F_0pXl0iZ2XqV1q/edit" # แก้เป็น URL หน้าปกติของ Sheet คุณ
+SHEET_NAME_URL = "https://docs.google.com/spreadsheets/d/1oiHsqmiqd5b159EAuIZ2DcyhjoYCpXDYftQnsVq6RRA/edit?gid=1680643019#gid=1680643019" # แก้เป็น URL หน้าปกติของ Sheet คุณ
 
 # เชื่อมต่อ Google Sheets (Write Access)
 def get_gspread_client():

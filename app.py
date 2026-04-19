@@ -19,7 +19,6 @@ def get_gspread_client():
 def upload_to_imgbb(file):
     try:
         url = "https://api.imgbb.com/1/upload"
-        # อ่านไฟล์และแปลงเป็น Base64
         file_content = file.read()
         payload = {
             "key": IMGBB_API_KEY,
@@ -38,29 +37,20 @@ st.set_page_config(page_title="BOSS TANG | NEON VAULT", layout="wide", page_icon
 st.markdown("""
     <style>
     .stApp { background-color: #050505; color: #00f2ff; }
-    
-    /* Metrics */
     [data-testid="stMetricValue"] { color: #00f2ff !important; text-shadow: 0 0 10px #00f2ff; }
     .stMetric { background: rgba(0, 242, 255, 0.05); border: 1px solid #00f2ff; border-radius: 5px; padding: 20px; }
-
-    /* Buttons */
     .stButton>button {
         background-color: transparent; color: #00f2ff; border: 2px solid #00f2ff;
         width: 100%; text-transform: uppercase; font-weight: bold; transition: 0.3s;
     }
     .stButton>button:hover { background-color: #00f2ff !important; color: #000 !important; box-shadow: 0 0 20px #00f2ff; }
-
-    /* Card Gallery Frame */
     .card-frame {
         border: 1px solid #1a1a1a; padding: 15px; border-radius: 10px;
         background: #0a0a0a; transition: all 0.4s; text-align: center; margin-bottom: 20px;
     }
     .card-frame:hover { border-color: #00f2ff; transform: translateY(-5px); box-shadow: 0 5px 15px rgba(0, 242, 255, 0.3); }
-
-    /* Form Inputs */
     label { color: #00f2ff !important; font-weight: bold; text-transform: uppercase; }
     .stTextInput>div>div>input, .stNumberInput>div>div>input { background-color: #0a0a0a !important; color: #00f2ff !important; border: 1px solid #333 !important; }
-    
     button[data-baseweb="tab"] p { font-size: 18px !important; color: #00f2ff !important; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
@@ -89,12 +79,10 @@ df = load_data()
 
 # --- 2. MAIN LOGIC ---
 if not df.empty:
-    # Calculations
     df['Total_Cost'] = (df['Buy_Price'] + df.get('Grade_Fee', 0)) * df['Quantity']
     df['Total_Market_Value'] = df['Market_Price'] * df['Quantity']
     df['Net_Profit'] = df['Total_Market_Value'] - df['Total_Cost']
 
-    # Dashboard Metrics
     def f_v(v): return "********" if privacy_mode else f"${v:,.2f}"
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("INITIAL_CAPITAL", f_v(df['Total_Cost'].sum()))
@@ -104,7 +92,6 @@ if not df.empty:
 
     st.write("---")
 
-    # --- 3. INPUT SYSTEM (BROWSE & UPLOAD) ---
     with st.expander("📝 NEW_ENTRY_SEQUENCER"):
         with st.form("scifi_entry", clear_on_submit=True):
             c1, c2, c3 = st.columns(3)
@@ -121,48 +108,49 @@ if not df.empty:
                 market = st.number_input("MARKET ($)", min_value=0.0)
                 qty = st.number_input("QUANTITY", min_value=1, step=1)
             
-            # ปุ่ม Browse รูปภาพ
             uploaded_file = st.file_uploader("📸 UPLOAD CARD IMAGE (AUTO-SYNC)", type=['jpg', 'jpeg', 'png'])
             
             if st.form_submit_button("EXECUTE_RECORD_DATA"):
                 if uploaded_file:
-                    with st.spinner("UPLOADING TO CYBER-SPACE..."):
+                    with st.spinner("UPLOADING..."):
                         img_url = upload_to_imgbb(uploaded_file)
-                        
                         if img_url:
                             try:
                                 client = get_gspread_client()
                                 sh = client.open_by_url(SHEET_NAME_URL).sheet1
                                 sh.append_row([c_id, cat, name, c_set, int(qty), buy, fee, market, score, img_url])
-                                st.success("SYNC_COMPLETE: ASSET SECURED")
+                                st.success("SYNC_COMPLETE")
                                 st.cache_data.clear()
                                 st.rerun()
                             except Exception as e: st.error(f"SHEET_ERROR: {e}")
                 else:
-                    st.warning("ERROR: PLEASE ATTACH VISUAL_DATA (IMAGE)")
+                    st.warning("ERROR: IMAGE REQUIRED")
 
-    # --- 4. VISUAL ARCHIVE (GALLERY) ---
     tab1, tab2 = st.tabs(["💾 VISUAL_ARCHIVE", "📊 DATA_LOG"])
 
     with tab1:
         cols = st.columns(4)
         for idx, row in df.iterrows():
             with cols[idx % 4]:
-                pl = row['Market_Price'] - (row['Buy_Price'] + row.get('Grade_Fee', 0))
+                unit_cost = row.get('Buy_Price', 0) + row.get('Grade_Fee', 0)
+                pl = row.get('Market_Price', 0) - unit_cost
                 status_color = "#00ff88" if pl >= 0 else "#ff4444"
                 
                 st.markdown(f'<div class="card-frame">', unsafe_allow_html=True)
-                st.write(f"**{row['Card_Name']}**")
+                st.write(f"**{row.get('Card_Name', 'Unknown')}**")
                 
-                img_url = row.get('Image_URL', "https://via.placeholder.com/200")
-                st.image(img_url, use_container_width=True)
+                # --- 🛡️ IMAGE GUARD: ป้องกัน Error จากค่าว่าง ---
+                raw_img = row.get('Image_URL', "")
+                if pd.notna(raw_img) and isinstance(raw_img, str) and raw_img.startswith("http"):
+                    st.image(raw_img, use_container_width=True)
+                else:
+                    st.image("https://via.placeholder.com/300x400/0a0a0a/00f2ff?text=IMAGE+NOT+FOUND", use_container_width=True)
                 
-                st.caption(f"ID: {row['Card_ID']} // {row['Grade_Score']}")
-                price_display = "********" if privacy_mode else f"${row['Market_Price']:,.2f}"
+                st.caption(f"ID: {row.get('Card_ID', 'N/A')} // {row.get('Grade_Score', 'N/A')}")
+                price_display = "********" if privacy_mode else f"${row.get('Market_Price', 0):,.2f}"
                 st.markdown(f"<span style='color:{status_color}; font-size:20px; font-weight:bold;'>{price_display}</span>", unsafe_allow_html=True)
                 st.markdown(f'<div style="color:{status_color}; font-size:10px; font-weight:bold;">{"▲ PROFIT" if pl >= 0 else "▼ LOSS"}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
-                st.write("")
 
     with tab2:
         st.dataframe(df, use_container_width=True)

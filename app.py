@@ -24,6 +24,21 @@ st.markdown("""
         color: #00f2ff;
     }
     
+    /* แก้ไขสี Label (ชื่อช่องกรอกต่างๆ) ให้อ่านง่าย */
+    label, .stSelectbox label, .stTextInput label, .stNumberInput label {
+        color: #00f2ff !important;
+        text-transform: uppercase;
+        font-weight: bold;
+        letter-spacing: 1px;
+    }
+
+    /* แก้ไขสีตัวหนังสือใน Tabs */
+    button[data-baseweb="tab"] p {
+        color: #00f2ff !important;
+        font-size: 18px;
+        font-weight: bold;
+    }
+
     /* Metrics Styling */
     [data-testid="stMetricValue"] {
         color: #00f2ff !important;
@@ -60,22 +75,28 @@ st.markdown("""
         transition: 0.3s;
     }
     .stButton>button:hover {
-        background-color: #00f2ff;
-        color: #000;
+        background-color: #00f2ff !important;
+        color: #000 !important;
         box-shadow: 0 0 20px #00f2ff;
     }
 
     /* Card Gallery Frame */
     .card-frame {
         border: 1px solid #333;
-        padding: 10px;
+        padding: 15px;
         border-radius: 5px;
         background: #0a0a0a;
         transition: 0.3s;
+        text-align: center;
     }
     .card-frame:hover {
         border-color: #00f2ff;
         box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+    }
+    
+    /* Caption styling */
+    .stCaption {
+        color: #a0f9ff !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -89,7 +110,8 @@ st.write("--- SYSTEM ONLINE // ACCESS GRANTED ---")
 def load_data():
     try:
         data = pd.read_csv(SHEET_URL)
-        cols_to_fix = ['Buy_Price', 'Grade_Fee', 'Market_Price']
+        # ตรวจสอบชื่อคอลัมน์และแก้ไขค่านอนตัวเลข
+        cols_to_fix = ['Buy_Price', 'Grade_Fee', 'Market_Price', 'Quantity']
         for col in cols_to_fix:
             if col in data.columns:
                 data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0)
@@ -101,15 +123,16 @@ df = load_data()
 
 if not df.empty:
     # --- 2. SCI-FI DASHBOARD METRICS ---
-    df['Total_Cost'] = (df['Buy_Price'] + df.get('Grade_Fee', 0)) * df['Quantity']
-    df['Total_Market_Value'] = df['Market_Price'] * df['Quantity']
+    # ใช้ .get() เพื่อป้องกันกรณีชื่อคอลัมน์ใน Google Sheet ไม่ตรง
+    df['Total_Cost'] = (df.get('Buy_Price', 0) + df.get('Grade_Fee', 0)) * df.get('Quantity', 0)
+    df['Total_Market_Value'] = df.get('Market_Price', 0) * df.get('Quantity', 0)
     df['Net_Profit'] = df['Total_Market_Value'] - df['Total_Cost']
 
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("INITIAL_CAPITAL", f"${df['Total_Cost'].sum():,.2f}")
     m2.metric("CURRENT_VALUATION", f"${df['Total_Market_Value'].sum():,.2f}")
     m3.metric("NET_PROFIT_LOSS", f"${df['Net_Profit'].sum():,.2f}")
-    m4.metric("TOTAL_ASSETS", f"{df['Quantity'].sum()} UNITS")
+    m4.metric("TOTAL_ASSETS", f"{int(df['Quantity'].sum())} UNITS")
 
     st.write("---")
 
@@ -152,22 +175,28 @@ if not df.empty:
         for idx, row in df.iterrows():
             with cols[idx % 4]:
                 st.markdown(f'<div class="card-frame">', unsafe_allow_html=True)
-                st.write(f"**{row['Card_Name']}**")
+                st.markdown(f"**{row.get('Card_Name', 'Unknown')}**")
                 
                 # Image Logic
-                if pd.notna(row['Image_URL']) and str(row['Image_URL']).startswith('http'):
-                    st.image(row['Image_URL'], use_container_width=True)
+                img_url = row.get('Image_URL', '')
+                if pd.notna(img_url) and str(img_url).startswith('http'):
+                    st.image(img_url, use_container_width=True)
                 else:
                     st.image("https://via.placeholder.com/300x400/0a0a0a/00f2ff?text=NO+VISUAL+DATA", use_container_width=True)
                 
-                # Sub-data
-                st.caption(f"ID: {row['Card_ID']} // {row['Grade_Score']}")
-                st.markdown(f"<span style='color:#00f2ff'>VALUE: ${row['Market_Price']:.2f}</span>", unsafe_allow_html=True)
+                # Sub-data (ใช้ .get ป้องกัน Error)
+                c_id_val = row.get('Card_ID', 'N/A')
+                g_score = row.get('Grade_Score', 'RAW')
+                m_price = row.get('Market_Price', 0)
+                
+                st.caption(f"ID: {c_id_val} // {g_score}")
+                st.markdown(f"<span style='color:#00f2ff; font-weight:bold;'>VALUE: ${m_price:,.2f}</span>", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
-                st.write("") # Spacer
+                st.write("") 
 
     with tab2:
-        st.dataframe(df.style.highlight_max(axis=0, color='#003333'), use_container_width=True)
+        # ปรับแต่งตารางให้อ่านง่ายขึ้นใน Dark Mode
+        st.dataframe(df, use_container_width=True)
 
 else:
     st.warning("⚠️ WARNING: DATA_SOURCE_NOT_DETECTED. PLEASE CHECK GOOGLE_SHEETS_LINK.")

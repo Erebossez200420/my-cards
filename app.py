@@ -16,13 +16,17 @@ def get_gspread_client():
 st.set_page_config(page_title="Boss Tang Card Vault", layout="wide", page_icon="🃏")
 
 # Custom CSS เพื่อให้ UI ดูเท่ขึ้น
+# --- UI SETTINGS ---
+st.set_page_config(page_title="Boss Tang Card Vault", layout="wide", page_icon="🃏")
+
+# แก้ไขบรรทัดนี้ครับ:
 st.markdown("""
     <style>
     .main { background-color: #0e1117; }
     .stMetric { background-color: #161b22; border: 1px solid #30363d; padding: 15px; border-radius: 10px; }
     .stDataFrame { border: 1px solid #30363d; border-radius: 10px; }
     </style>
-    """, unsafe_allow_submit_url=True)
+    """, unsafe_allow_html=True)
 
 st.title("🃏 BOSS TANG | Card Vault")
 st.subheader("พอร์ตสะสมการ์ดและการลงทุน (Manual Tracker)")

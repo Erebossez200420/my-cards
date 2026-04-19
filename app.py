@@ -13,101 +13,161 @@ def get_gspread_client():
     return gspread.authorize(creds)
 
 # --- UI SETTINGS ---
-st.set_page_config(page_title="Boss Tang Card Vault", layout="wide", page_icon="🃏")
+st.set_page_config(page_title="BOSS TANG | NEON VAULT", layout="wide", page_icon="📟")
 
-# Custom CSS เพื่อให้ UI ดูเท่ขึ้น
-# --- UI SETTINGS ---
-st.set_page_config(page_title="Boss Tang Card Vault", layout="wide", page_icon="🃏")
-
-# แก้ไขบรรทัดนี้ครับ:
+# --- SCI-FI UI DESIGN (CSS) ---
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; }
-    .stMetric { background-color: #161b22; border: 1px solid #30363d; padding: 15px; border-radius: 10px; }
-    .stDataFrame { border: 1px solid #30363d; border-radius: 10px; }
+    /* Main Background */
+    .stApp {
+        background-color: #050505;
+        color: #00f2ff;
+    }
+    
+    /* Metrics Styling */
+    [data-testid="stMetricValue"] {
+        color: #00f2ff !important;
+        font-family: 'Courier New', Courier, monospace;
+        text-shadow: 0 0 10px #00f2ff;
+    }
+    
+    .stMetric {
+        background: rgba(0, 242, 255, 0.05);
+        border: 1px solid #00f2ff;
+        border-radius: 5px;
+        padding: 20px;
+        box-shadow: inset 0 0 15px rgba(0, 242, 255, 0.1);
+    }
+
+    /* Sci-Fi Headers */
+    h1, h2, h3 {
+        color: #00f2ff !important;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        border-left: 5px solid #00f2ff;
+        padding-left: 15px;
+    }
+
+    /* Form & Buttons */
+    .stButton>button {
+        background-color: transparent;
+        color: #00f2ff;
+        border: 2px solid #00f2ff;
+        width: 100%;
+        text-transform: uppercase;
+        font-weight: bold;
+        transition: 0.3s;
+    }
+    .stButton>button:hover {
+        background-color: #00f2ff;
+        color: #000;
+        box-shadow: 0 0 20px #00f2ff;
+    }
+
+    /* Card Gallery Frame */
+    .card-frame {
+        border: 1px solid #333;
+        padding: 10px;
+        border-radius: 5px;
+        background: #0a0a0a;
+        transition: 0.3s;
+    }
+    .card-frame:hover {
+        border-color: #00f2ff;
+        box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+    }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🃏 BOSS TANG | Card Vault")
-st.subheader("พอร์ตสะสมการ์ดและการลงทุน (Manual Tracker)")
+# --- HEADER SECTION ---
+st.title("📟 ULTRA-CARD VAULT v3.0")
+st.write("--- SYSTEM ONLINE // ACCESS GRANTED ---")
 
 # --- 1. DATA LOADING ---
 @st.cache_data(ttl=30)
 def load_data():
-    data = pd.read_csv(SHEET_URL)
-    # จัดการค่าว่าง
-    data[['Buy_Price', 'Grade_Fee', 'Market_Price']] = data[['Buy_Price', 'Grade_Fee', 'Market_Price']].fillna(0)
-    return data
+    try:
+        data = pd.read_csv(SHEET_URL)
+        cols_to_fix = ['Buy_Price', 'Grade_Fee', 'Market_Price']
+        for col in cols_to_fix:
+            if col in data.columns:
+                data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0)
+        return data
+    except:
+        return pd.DataFrame()
 
-try:
-    df = load_data()
+df = load_data()
 
-    # --- 2. SUMMARY METRICS ---
-    # คำนวณต้นทุนรวม (ค่าเครื่อง + ค่าเกรด)
-    df['Total_Cost'] = (df['Buy_Price'] + df['Grade_Fee']) * df['Quantity']
+if not df.empty:
+    # --- 2. SCI-FI DASHBOARD METRICS ---
+    df['Total_Cost'] = (df['Buy_Price'] + df.get('Grade_Fee', 0)) * df['Quantity']
     df['Total_Market_Value'] = df['Market_Price'] * df['Quantity']
-    df['Profit_Loss'] = df['Total_Market_Value'] - df['Total_Cost']
+    df['Net_Profit'] = df['Total_Market_Value'] - df['Total_Cost']
 
     m1, m2, m3, m4 = st.columns(4)
-    m1.metric("💰 Total Invested", f"${df['Total_Cost'].sum():,.2f}")
-    m2.metric("📈 Market Value", f"${df['Total_Market_Value'].sum():,.2f}")
-    
-    p_l = df['Profit_Loss'].sum()
-    m3.metric("🔥 Total P/L", f"${p_l:,.2f}", f"{(p_l/df['Total_Cost'].sum()*100) if df['Total_Cost'].sum()>0 else 0:.1f}%")
-    m4.metric("📦 Total Items", f"{df['Quantity'].sum()} Cards")
+    m1.metric("INITIAL_CAPITAL", f"${df['Total_Cost'].sum():,.2f}")
+    m2.metric("CURRENT_VALUATION", f"${df['Total_Market_Value'].sum():,.2f}")
+    m3.metric("NET_PROFIT_LOSS", f"${df['Net_Profit'].sum():,.2f}")
+    m4.metric("TOTAL_ASSETS", f"{df['Quantity'].sum()} UNITS")
 
-    # --- 3. ADD NEW CARD FORM ---
-    with st.expander("➕ บันทึกการ์ดใบใหม่ (Add New Record)"):
-        with st.form("new_card_form", clear_on_submit=True):
+    st.write("---")
+
+    # --- 3. INPUT SYSTEM ---
+    with st.expander("📝 NEW_ENTRY_SEQUENCER"):
+        with st.form("scifi_entry"):
             c1, c2, c3 = st.columns(3)
             with c1:
-                cat = st.selectbox("หมวดหมู่", ["One Piece", "Pokemon", "F1", "Football", "Other"])
-                name = st.text_input("ชื่อการ์ด / นักแข่ง")
-                c_id = st.text_input("รหัสการ์ด (เช่น OP05-119)")
+                cat = st.selectbox("TYPE", ["One Piece", "Pokemon", "F1", "Football", "Others"])
+                name = st.text_input("ASSET_NAME")
+                c_id = st.text_input("ASSET_SERIAL_ID")
             with c2:
-                c_set = st.text_input("ชื่อชุด (Set Name)")
-                buy = st.number_input("ราคาซื้อ ($)", min_value=0.0)
-                fee = st.number_input("ค่าเกรด ($)", min_value=0.0)
+                c_set = st.text_input("BATCH/SET")
+                buy = st.number_input("ACQUISITION_COST ($)", min_value=0.0)
+                fee = st.number_input("ENHANCEMENT_FEE ($)", min_value=0.0)
             with c3:
-                score = st.text_input("คะแนนเกรด (เช่น PSA 10, BGS 9.5)")
-                market = st.number_input("ราคาตลาดปัจจุบัน ($)", min_value=0.0)
-                qty = st.number_input("จำนวน", min_value=1, step=1)
+                score = st.text_input("STABILITY_GRADE (e.g. PSA 10)")
+                market = st.number_input("CURRENT_MARKET ($)", min_value=0.0)
+                qty = st.number_input("QUANTITY", min_value=1, step=1)
             
-            img = st.text_input("ลิงก์รูปภาพ (Direct Image Link)")
+            img = st.text_input("VISUAL_DATA_LINK (Image URL)")
             
-            if st.form_submit_button("🚀 บันทึกลงคลัง"):
+            if st.form_submit_button("EXECUTE_RECORD_DATA"):
                 try:
                     client = get_gspread_client()
                     sh = client.open_by_url(SHEET_NAME_URL).sheet1
-                    # ลำดับตามชีต: Card_ID, Category, Card_Name, Set_Name, Quantity, Buy_Price, Grade_Fee, Market_Price, Grade_Score, Image_URL
                     sh.append_row([c_id, cat, name, c_set, int(qty), buy, fee, market, score, img])
-                    st.success(f"บันทึก {name} เรียบร้อยแล้ว! (รอ Google Update 1 นาที)")
+                    st.success("DATA_STRAND_ADDED_SUCCESSFULLY")
                     st.cache_data.clear()
+                    st.rerun()
                 except Exception as e:
-                    st.error(f"เกิดข้อผิดพลาด: {e}")
+                    st.error(f"SYSTEM_ERROR: {e}")
 
-    # --- 4. GALLERY & DATA TABLE ---
-    tab1, tab2 = st.tabs(["🖼️ Card Gallery", "📑 Detailed List"])
+    # --- 4. VISUAL ARCHIVE (GALLERY) ---
+    tab1, tab2 = st.tabs(["💾 VISUAL_ARCHIVE", "📊 RAW_DATA_LOG"])
 
     with tab1:
-        # แสดงรูปภาพแบบเท่ๆ
+        st.write("### // SCANNING ASSETS...")
         cols = st.columns(4)
         for idx, row in df.iterrows():
             with cols[idx % 4]:
-                st.markdown(f"**{row['Card_Name']}**")
+                st.markdown(f'<div class="card-frame">', unsafe_allow_html=True)
+                st.write(f"**{row['Card_Name']}**")
+                
+                # Image Logic
                 if pd.notna(row['Image_URL']) and str(row['Image_URL']).startswith('http'):
                     st.image(row['Image_URL'], use_container_width=True)
                 else:
-                    st.image("https://via.placeholder.com/300x400?text=No+Image", use_container_width=True)
+                    st.image("https://via.placeholder.com/300x400/0a0a0a/00f2ff?text=NO+VISUAL+DATA", use_container_width=True)
                 
-                # แสดงเกรดถ้ามี
-                if pd.notna(row['Grade_Score']):
-                    st.caption(f"⭐ Grade: {row['Grade_Score']}")
-                st.write(f"Cost: ${row['Buy_Price'] + row['Grade_Fee']:.2f}")
-                st.divider()
+                # Sub-data
+                st.caption(f"ID: {row['Card_ID']} // {row['Grade_Score']}")
+                st.markdown(f"<span style='color:#00f2ff'>VALUE: ${row['Market_Price']:.2f}</span>", unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+                st.write("") # Spacer
 
     with tab2:
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df.style.highlight_max(axis=0, color='#003333'), use_container_width=True)
 
-except Exception as e:
-    st.info("กำลังรอข้อมูลจาก Google Sheets ของคุณ... หากตั้งค่าเสร็จแล้วข้อมูลจะปรากฏที่นี่")
+else:
+    st.warning("⚠️ WARNING: DATA_SOURCE_NOT_DETECTED. PLEASE CHECK GOOGLE_SHEETS_LINK.")

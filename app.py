@@ -10,7 +10,6 @@ IMGBB_API_KEY = "4988b58d7f17cd1e55f0dfca0d13ecb6"
 SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTJncpOFgpWjWoU0kXjPoPeqj3pvrppiy0MeBNHIP2tv7pGQREloJB4CCw0UNONN4R64W6BBJS61VTO/pub?output=csv"
 SHEET_NAME_URL = "https://docs.google.com/spreadsheets/d/1oiHsqmiqd5b159EAuIZ2DcyhjoYCpXDYftQnsVq6RRA/edit"
 
-# --- CORE FUNCTIONS ---
 def get_gspread_client():
     scope = ["https://www.googleapis.com/auth/spreadsheets"]
     creds = Credentials.from_service_account_info(st.secrets["gcp_service_account"], scopes=scope)
@@ -25,156 +24,182 @@ def upload_to_imgbb(file):
     except: return None
 
 # --- UI SETTINGS ---
-st.set_page_config(page_title="BOSS TANG | TOTAL CONTROL", layout="wide", page_icon="🃏")
+st.set_page_config(page_title="BOSS TANG | PROFIT REALIZER", layout="wide", page_icon="💰")
 
 st.markdown("""
     <style>
     .stApp { background-color: #050505; color: #00f2ff; }
-    .card-frame { border: 1px solid #1a1a1a; padding: 15px; border-radius: 10px; background: #0a0a0a; text-align: center; margin-bottom: 20px; }
-    .card-frame:hover { border-color: #00f2ff; box-shadow: 0 0 15px rgba(0, 242, 255, 0.2); }
-    label { color: #00f2ff !important; font-weight: bold; text-transform: uppercase; }
+    .card-frame { border: 1px solid #1a1a1a; padding: 15px; border-radius: 10px; background: #0a0a0a; text-align: center; margin-bottom: 20px; position: relative; }
+    .card-frame:hover { border-color: #00f2ff; box-shadow: 0 0 20px rgba(0, 242, 255, 0.2); }
+    .status-active { color: #00ff88; font-size: 10px; font-weight: bold; border: 1px solid #00ff88; padding: 2px 5px; border-radius: 5px; }
+    .status-sold { color: #ff4444; font-size: 10px; font-weight: bold; border: 1px solid #ff4444; padding: 2px 5px; border-radius: 5px; }
+    label { color: #00f2ff !important; font-weight: bold; }
     [data-testid="stMetricValue"] { color: #00f2ff !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- HEADER & CONTROLS ---
-col_h1, col_h2 = st.columns([0.7, 0.3])
-with col_h1:
-    st.title("📟 ULTRA-VAULT v6.0")
-    st.caption("// SYSTEM: TOTAL_ASSET_MANAGEMENT // PHOTO_SYNC: ENABLED")
-with col_h2:
+# --- HEADER ---
+c_h1, c_h2 = st.columns([0.7, 0.3])
+with c_h1:
+    st.title("📟 ULTRA-VAULT v7.0")
+    st.caption("// MODULE: REALIZED_PROFIT_TRACKER // STATUS: ONLINE")
+with c_h2:
     privacy_mode = st.toggle("🔒 Privacy Mode", value=False)
-    if st.button("🔄 Force Sync Cloud"):
+    if st.button("🔄 Sync Neural Link"):
         st.cache_data.clear()
         st.rerun()
 
-# --- 1. DATA LOADING & AUTO-CLEANING ---
+# --- 1. DATA LOADING & CLEANING ---
 @st.cache_data(ttl=10)
 def load_data():
     try:
         data = pd.read_csv(SHEET_URL)
-        numeric_cols = ['Quantity', 'Buy_Price', 'Grade_Fee', 'Market_Price']
+        # ทำความสะอาดข้อมูลตัวเลข
+        numeric_cols = ['Quantity', 'Buy_Price', 'Grade_Fee', 'Market_Price', 'Sell_Price']
         for col in numeric_cols:
             if col in data.columns:
                 data[col] = data[col].astype(str).str.replace(',', '').str.replace('$', '')
                 data[col] = pd.to_numeric(data[col], errors='coerce').fillna(0)
+        # ตรวจสอบคอลัมน์ Status
+        if 'Status' not in data.columns:
+            data['Status'] = 'Active'
         return data
     except: return pd.DataFrame()
 
 df = load_data()
 
 if not df.empty:
-    # Calculations
+    # --- Advanced Calculations ---
     df['Unit_Cost'] = df['Buy_Price'] + df['Grade_Fee']
     df['Total_Cost'] = df['Unit_Cost'] * df['Quantity']
-    df['Total_Value'] = df['Market_Price'] * df['Quantity']
-    df['Net_PL'] = df['Total_Value'] - df['Total_Cost']
+    
+    # กำไรทิพย์ (เฉพาะที่ยังไม่ขาย)
+    df['Unrealized_PL'] = (df['Market_Price'] - df['Unit_Cost']) * df['Quantity']
+    # กำไรจริง (เฉพาะที่ขายแล้ว)
+    df['Realized_PL'] = (df['Sell_Price'] - df['Unit_Cost']) * df['Quantity']
+    
+    # แยกกลุ่มข้อมูล
+    active_assets = df[df['Status'] != 'Sold']
+    sold_assets = df[df['Status'] == 'Sold']
 
-    # Metrics
+    # --- Metrics Dashboard ---
     def f_v(v): return "********" if privacy_mode else f"${v:,.2f}"
-    m1, m2, m3 = st.columns(3)
-    m1.metric("CAPITAL", f_v(df['Total_Cost'].sum()))
-    m2.metric("CURRENT VALUE", f_v(df['Total_Value'].sum()))
-    m3.metric("NET P/L", f_v(df['Net_PL'].sum()), delta=None if privacy_mode else f"{df['Net_PL'].sum():,.2f}")
+    
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("VAULT VALUE", f_v(active_assets['Total_Cost'].sum()))
+    m2.metric("HOLDING P/L", f_v(active_assets['Unrealized_PL'].sum()), delta=f_v(active_assets['Unrealized_PL'].sum()) if not privacy_mode else None)
+    m3.metric("REALIZED PROFIT", f_v(sold_assets['Realized_PL'].sum()), delta_color="normal")
+    m4.metric("TOTAL ASSETS", f"{len(df)} UNITS")
 
     st.divider()
 
-    # --- 2. TABS SYSTEM ---
-    tab_gallery, tab_edit, tab_add = st.tabs(["🖼️ ARCHIVE", "⚙️ ASSET MANAGER", "➕ ADD NEW"])
+    # --- 2. TABS ---
+    t_gallery, t_manage, t_add = st.tabs(["🖼️ ARCHIVE", "⚙️ ASSET & SALES MANAGER", "➕ ADD NEW"])
 
-    with tab_gallery:
+    with t_gallery:
+        view_filter = st.radio("FILTER", ["ALL", "IN VAULT", "SOLD OUT"], horizontal=True)
+        display_df = df
+        if view_filter == "IN VAULT": display_df = active_assets
+        if view_filter == "SOLD OUT": display_df = sold_assets
+
         cols = st.columns(4)
-        for idx, row in df.iterrows():
+        for idx, row in display_df.iterrows():
             with cols[idx % 4]:
-                pl_per_card = row['Market_Price'] - row['Unit_Cost']
-                color = "#00ff88" if pl_per_card >= 0 else "#ff4444"
+                is_sold = row['Status'] == 'Sold'
+                # คำนวณ P/L ตามสถานะ
+                current_pl = (row['Sell_Price'] if is_sold else row['Market_Price']) - row['Unit_Cost']
+                color = "#00ff88" if current_pl >= 0 else "#ff4444"
                 
-                st.markdown(f'<div class="card-frame">', unsafe_allow_html=True)
+                st.markdown('<div class="card-frame">', unsafe_allow_html=True)
                 st.write(f"**{row['Card_Name']}**")
                 
+                # Image
                 img = row.get('Image_URL', "")
-                if pd.notna(img) and isinstance(img, str) and img.startswith('http'):
-                    st.image(img, use_container_width=True)
-                else:
-                    st.image("https://via.placeholder.com/200/0a0a0a/00f2ff?text=NO+PHOTO", use_container_width=True)
+                st.image(img if (pd.notna(img) and str(img).startswith('http')) else "https://via.placeholder.com/200", use_container_width=True)
                 
-                # แสดงเกรดเด่นๆ
-                st.caption(f"GRADE: {row.get('Grade_Score', 'RAW')} | QTY: {int(row['Quantity'])}")
+                # Status & Grade
+                st.markdown(f'<span class="{"status-sold" if is_sold else "status-active"}">{"SOLD" if is_sold else "IN VAULT"}</span>', unsafe_allow_html=True)
+                st.caption(f"GRADE: {row['Grade_Score']}")
                 
-                price_txt = "********" if privacy_mode else f"${row['Market_Price']:,.2f}"
-                st.markdown(f"<div style='color:{color}; font-size:20px; font-weight:bold;'>{price_txt}</div>", unsafe_allow_html=True)
-                st.markdown(f'<div style="color:{color}; font-size:11px; font-weight:bold;">{"▲ PROFIT" if pl_per_card >= 0 else "▼ LOSS"}: {f_v(pl_per_card)}</div>', unsafe_allow_html=True)
+                # Price Logic
+                label_p = "SOLD AT" if is_sold else "MARKET"
+                price_p = row['Sell_Price'] if is_sold else row['Market_Price']
+                
+                st.markdown(f"<div style='color:{color}; font-size:20px; font-weight:bold;'>{f_v(price_p)}</div>", unsafe_allow_html=True)
+                st.markdown(f'<div style="color:{color}; font-size:11px; font-weight:bold;">{label_p} {pl_label := "PROFIT" if current_pl >= 0 else "LOSS"}: {f_v(current_pl)}</div>', unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-    with tab_edit:
-        st.subheader("🛠️ UNIVERSAL ASSET EDITOR")
-        card_to_edit = st.selectbox("SELECT ASSET TO MODIFY", df['Card_Name'].tolist())
-        row_idx = df[df['Card_Name'] == card_to_edit].index[0]
+    with t_manage:
+        st.subheader("🛠️ ASSET MODIFICATION & SALES")
+        target_card = st.selectbox("SELECT ASSET", df['Card_Name'].tolist())
+        r_idx = df[df['Card_Name'] == target_card].index[0]
         
-        with st.form("universal_edit_form"):
+        with st.form("universal_manager"):
             e1, e2, e3 = st.columns(3)
             with e1:
-                edit_market = st.number_input("MARKET PRICE ($)", value=float(df.at[row_idx, 'Market_Price']))
-                edit_qty = st.number_input("QUANTITY", value=int(df.at[row_idx, 'Quantity']), step=1)
+                st.markdown("📦 **INVENTORY**")
+                m_price = st.number_input("MARKET PRICE ($)", value=float(df.at[r_idx, 'Market_Price']))
+                m_qty = st.number_input("QTY", value=int(df.at[r_idx, 'Quantity']))
+                m_status = st.selectbox("STATUS", ["Active", "Sold"], index=0 if df.at[r_idx, 'Status'] != 'Sold' else 1)
             with e2:
-                edit_grade = st.text_input("GRADE SCORE", value=str(df.at[row_idx, 'Grade_Score']))
-                edit_fee = st.number_input("GRADE FEE ($)", value=float(df.at[row_idx, 'Grade_Fee']))
+                st.markdown("💎 **GRADING**")
+                m_grade = st.text_input("GRADE", value=str(df.at[r_idx, 'Grade_Score']))
+                m_fee = st.number_input("FEE ($)", value=float(df.at[r_idx, 'Grade_Fee']))
             with e3:
-                st.write("🖼️ **UPDATE PHOTO**")
-                new_photo = st.file_uploader("UPLOAD NEW IMAGE", type=['jpg','jpeg','png'])
-                st.caption("Leave empty to keep current photo")
+                st.markdown("💰 **SALES DATA**")
+                m_sell = st.number_input("SELL PRICE ($)", value=float(df.at[r_idx, 'Sell_Price']))
+                m_photo = st.file_uploader("UPDATE PHOTO", type=['jpg','png'])
 
-            if st.form_submit_button("💾 SAVE ALL CHANGES"):
+            if st.form_submit_button("💾 COMMIT CHANGES TO CLOUD"):
                 try:
-                    with st.spinner("UPDATING NEURAL NETWORK..."):
-                        client = get_gspread_client()
-                        sh = client.open_by_url(SHEET_NAME_URL).sheet1
-                        g_row = row_idx + 2
+                    client = get_gspread_client()
+                    sh = client.open_by_url(SHEET_NAME_URL).sheet1
+                    g_row = r_idx + 2
+                    
+                    # Update Cells (8:Market, 5:Qty, 12:Status, 9:Grade, 7:Fee, 11:Sell_Price)
+                    updates = [
+                        {'range': f'H{g_row}', 'values': [[m_price]]},
+                        {'range': f'E{g_row}', 'values': [[m_qty]]},
+                        {'range': f'L{g_row}', 'values': [[m_status]]},
+                        {'range': f'I{g_row}', 'values': [[m_grade]]},
+                        {'range': f'G{g_row}', 'values': [[m_fee]]},
+                        {'range': f'K{g_row}', 'values': [[m_sell]]}
+                    ]
+                    for up in updates: sh.update(up['range'], up['values'])
+                    
+                    if m_photo:
+                        new_url = upload_to_imgbb(m_photo)
+                        if new_url: sh.update(f'J{g_row}', [[new_url]])
                         
-                        # อัปเดตข้อมูลพื้นฐาน
-                        sh.update_cell(g_row, 8, edit_market) # Market_Price
-                        sh.update_cell(g_row, 5, edit_qty)    # Quantity
-                        sh.update_cell(g_row, 9, edit_grade)  # Grade_Score
-                        sh.update_cell(g_row, 7, edit_fee)    # Grade_Fee
-                        
-                        # ถ้ามีการอัปโหลดรูปใหม่
-                        if new_photo:
-                            new_img_url = upload_to_imgbb(new_photo)
-                            if new_img_url:
-                                sh.update_cell(g_row, 10, new_img_url) # Image_URL
-                        
-                        st.success(f"SUCCESS: {card_to_edit} HAS BEEN RE-CONFIGURED.")
-                        st.cache_data.clear()
-                        st.rerun()
+                    st.success(f"ASSET {target_card} UPDATED.")
+                    st.cache_data.clear()
+                    st.rerun()
                 except Exception as e: st.error(f"SYNC ERROR: {e}")
 
-    with tab_add:
-        # ส่วนเพิ่มข้อมูลใหม่
-        with st.form("new_entry", clear_on_submit=True):
+    with t_add:
+        with st.form("new_asset", clear_on_submit=True):
             a1, a2, a3 = st.columns(3)
             with a1:
-                cat = st.selectbox("TYPE", ["One Piece", "Pokemon", "F1", "Others"])
-                name = st.text_input("ASSET NAME")
-                c_id = st.text_input("SERIAL ID")
+                n_cat = st.selectbox("TYPE", ["One Piece", "Pokemon", "F1", "Others"])
+                n_name = st.text_input("NAME")
+                n_id = st.text_input("SERIAL ID")
             with a2:
-                c_set = st.text_input("SET ORIGIN")
-                buy = st.number_input("BUY COST ($)", min_value=0.0)
-                fee = st.number_input("GRADE FEE ($)", min_value=0.0)
+                n_set = st.text_input("SET")
+                n_buy = st.number_input("BUY ($)", min_value=0.0)
+                n_fee = st.number_input("FEE ($)", min_value=0.0)
             with a3:
-                score = st.text_input("GRADE SCORE")
-                market_in = st.number_input("MARKET PRICE ($)", min_value=0.0)
-                qty_in = st.number_input("QUANTITY", min_value=1, step=1)
-            up_file = st.file_uploader("📸 ATTACH PHOTO", type=['jpg','png','jpeg'])
+                n_score = st.text_input("GRADE")
+                n_market = st.number_input("MARKET ($)", min_value=0.0)
+                n_qty = st.number_input("QTY", min_value=1)
             
-            if st.form_submit_button("🚀 INITIALIZE ASSET"):
-                if up_file:
-                    new_img = upload_to_imgbb(up_file)
-                    if new_img:
+            n_file = st.file_uploader("PHOTO", type=['jpg','png','jpeg'])
+            if st.form_submit_button("🚀 RECORD ASSET"):
+                if n_file:
+                    n_img = upload_to_imgbb(n_file)
+                    if n_img:
                         client = get_gspread_client()
                         sh = client.open_by_url(SHEET_NAME_URL).sheet1
-                        sh.append_row([c_id, cat, name, c_set, int(qty_in), buy, fee, market_in, score, new_img])
+                        # Row: ID, Cat, Name, Set, Qty, Buy, Fee, Market, Grade, Image, Sell_Price, Status
+                        sh.append_row([n_id, n_cat, n_name, n_set, int(n_qty), n_buy, n_fee, n_market, n_score, n_img, 0, "Active"])
                         st.cache_data.clear()
                         st.rerun()
-                else: st.warning("VISUAL DATA REQUIRED")
-else:
-    st.info("⚡ SCANNING... ADD YOUR FIRST ASSET TO START.")

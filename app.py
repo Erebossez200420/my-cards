@@ -24,7 +24,7 @@ def upload_to_imgbb(file):
     except: return None
 
 # --- UI DESIGN SYSTEM ---
-st.set_page_config(page_title="VAULT PRO v13.4", layout="wide", page_icon="💎")
+st.set_page_config(page_title="PRO VAULT v13.5", layout="wide", page_icon="💎")
 
 st.markdown("""
     <style>
@@ -45,135 +45,107 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- DATA ENGINE (BULLETPROOF MODE) ---
+# --- DATA ENGINE (ULTRA-SAFE) ---
 @st.cache_data(ttl=5)
 def load_data():
     try:
         raw = pd.read_csv(SHEET_URL)
-        # 1. ล้างชื่อ Column ให้สะอาดที่สุด (ลบอักขระพิเศษ)
-        raw.columns = [str(c).strip().replace('\ufeff', '') for c in raw.columns]
+        # ล้างช่องว่างในชื่อ Column ทั้งหมด
+        raw.columns = [str(c).strip() for c in raw.columns]
+        
+        # บังคับสร้าง Column ที่จำเป็น (ถ้าไม่มีใน Google Sheet จะไม่พัง แต่จะแสดงเป็นค่าว่าง)
+        essential_cols = ['Card_Name', 'Status', 'Quantity', 'Buy_Price', 'Grade_Fee', 'Market_Price', 'Sell_Price', 'Image_URL', 'Grade_Score']
+        for col in essential_cols:
+            if col not in raw.columns:
+                raw[col] = 0 if any(x in col for x in ['Price', 'Fee', 'Quantity']) else "N/A"
 
-        # 2. ฟังก์ชันดึงข้อมูลแบบ "ไม่มีวันพัง"
-        def get_safe_col(df_in, target_name, default=""):
-            # ค้นหาชื่อ Column ที่ใกล้เคียงที่สุด (Case-insensitive)
-            for c in df_in.columns:
-                if c.lower() == target_name.lower():
-                    return df_in[c]
-            return pd.Series([default] * len(df_in))
-
-        # 3. สร้าง DataFrame ใหม่ด้วยโครงสร้างที่แน่นอน
-        clean_df = pd.DataFrame()
-        clean_df['gsheet_row'] = raw.index + 2
-        clean_df['Card_Name'] = get_safe_col(raw, 'Card_Name', "Unknown Asset")
-        clean_df['Status'] = get_safe_col(raw, 'Status', "Active")
-        clean_df['Quantity'] = get_safe_col(raw, 'Quantity', 0)
-        clean_df['Buy_Price'] = get_safe_col(raw, 'Buy_Price', 0)
-        clean_df['Grade_Fee'] = get_safe_col(raw, 'Grade_Fee', 0)
-        clean_df['Market_Price'] = get_safe_col(raw, 'Market_Price', 0)
-        clean_df['Sell_Price'] = get_safe_col(raw, 'Sell_Price', 0)
-        clean_df['Image_URL'] = get_safe_col(raw, 'Image_URL', "")
-        clean_df['Grade_Score'] = get_safe_col(raw, 'Grade_Score', "N/A")
-
-        # 4. Clean numeric data
+        # บันทึกตำแหน่งแถว
+        raw['gsheet_row'] = raw.index + 2
+        
+        # ทำความสะอาดตัวเลข
         for col in ['Quantity', 'Buy_Price', 'Grade_Fee', 'Market_Price', 'Sell_Price']:
-            clean_df[col] = (clean_df[col].astype(str)
-                            .str.replace(r'[$, ]', '', regex=True)
-                            .replace('', '0'))
-            clean_df[col] = pd.to_numeric(clean_df[col], errors='coerce').fillna(0)
+            raw[col] = pd.to_numeric(raw[col].astype(str).str.replace(r'[$, ]', '', regex=True), errors='coerce').fillna(0)
         
-        # 5. Business Logic
-        clean_df['Unit_Cost'] = clean_df['Buy_Price'] + clean_df['Grade_Fee']
-        clean_df['Total_Cost'] = clean_df['Unit_Cost'] * clean_df['Quantity']
-        clean_df['Current_Val'] = clean_df.apply(lambda x: x['Sell_Price'] if str(x['Status']).strip().lower() == 'sold' else x['Market_Price'], axis=1)
-        clean_df['Total_Value'] = clean_df['Current_Val'] * clean_df['Quantity']
-        clean_df['Net_Profit'] = clean_df['Total_Value'] - clean_df['Total_Cost']
-        clean_df['ROI_Pct'] = (clean_df['Net_Profit'] / clean_df['Total_Cost'].replace(0, 0.01)) * 100
+        # คำนวณกำไรและมูลค่า
+        raw['Unit_Cost'] = raw['Buy_Price'] + raw['Grade_Fee']
+        raw['Total_Cost'] = raw['Unit_Cost'] * raw['Quantity']
+        # ถ้า Status เป็น Sold ให้ใช้ราคาขาย ถ้าไม่ให้ใช้ราคากลาง
+        raw['Current_Val'] = raw.apply(lambda x: x['Sell_Price'] if str(x['Status']).strip().lower() == 'sold' else x['Market_Price'], axis=1)
+        raw['Total_Value'] = raw['Current_Val'] * raw['Quantity']
+        raw['Net_Profit'] = raw['Total_Value'] - raw['Total_Cost']
+        raw['ROI_Pct'] = (raw['Net_Profit'] / raw['Total_Cost'].replace(0, 0.01)) * 100
         
-        return clean_df
+        return raw
     except Exception as e:
-        st.error(f"Data Sync Failed: {e}")
+        st.error(f"Waiting for valid data connection... ({e})")
         return pd.DataFrame()
 
 df = load_data()
 
 # --- APP UI ---
-h_col1, h_col2 = st.columns([0.7, 0.3])
-with h_col1:
-    st.markdown("<h1 style='margin:0;'>PRO VAULT 13.4</h1>", unsafe_allow_html=True)
-with h_col2:
+h_c1, h_c2 = st.columns([0.7, 0.3])
+with h_c1:
+    st.markdown("<h1 style='margin:0;'>PRO VAULT 13.5</h1>", unsafe_allow_html=True)
+with h_c2:
     st.markdown('<div class="btn-sync">', unsafe_allow_html=True)
     if st.button("🔄 REFRESH"):
         st.cache_data.clear(); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 if not df.empty:
-    # 100% Safe Column Access
-    status_list = df['Status'].astype(str).str.strip().lower()
-    active_mask = status_list != 'sold'
+    # คำนวณ Dashboard แบบ Safe
+    total_val = df[df['Status'].astype(str).str.strip().lower() != 'sold']['Total_Value'].sum()
+    total_profit = df['Net_Profit'].sum()
     
-    # Dashboard
     m1, m2, m3 = st.columns(3)
-    m1.metric("HOLDING VALUE", f"${df[active_mask]['Total_Value'].sum():,.2f}")
-    m2.metric("NET P/L", f"${df['Net_Profit'].sum():,.2f}", delta=f"{df['Net_Profit'].sum():+.0f}")
-    m3.metric("ROI (%)", f"{(df['Net_Profit'].sum() / df['Total_Cost'].sum() * 100 if df['Total_Cost'].sum() > 0 else 0):+.1f}%")
+    m1.metric("HOLDING VALUE", f"${total_val:,.2f}")
+    m2.metric("NET P/L", f"${total_profit:,.2f}", delta=f"{total_profit:+.0f}")
+    m3.metric("ROI (%)", f"{(total_profit / df['Total_Cost'].sum() * 100 if df['Total_Cost'].sum() > 0 else 0):+.1f}%")
 
     st.divider()
 
-    # Filters
-    f1, f2 = st.columns([0.6, 0.4])
-    q = f1.text_input("🔍 Search", placeholder="Find by name...")
-    sort_by = f2.selectbox("Sort", ["Latest", "Highest Profit", "Best ROI %"])
-
+    # Search
+    q = st.text_input("🔍 Search Asset", placeholder="Enter card name...")
     view_df = df.copy()
-    if q: view_df = view_df[view_df['Card_Name'].astype(str).str.contains(q, case=False, na=False)]
-    if sort_by == "Highest Profit": view_df = view_df.sort_values('Net_Profit', ascending=False)
-    elif sort_by == "Best ROI %": view_df = view_df.sort_values('ROI_Pct', ascending=False)
-    else: view_df = view_df.sort_index(ascending=False)
+    if q:
+        view_df = view_df[view_df['Card_Name'].astype(str).str.contains(q, case=False, na=False)]
 
     for idx, row in view_df.iterrows():
         p_color = "#3fb950" if row['Net_Profit'] >= 0 else "#f85149"
         
-        with st.expander(f"{row['Card_Name']} ┃ ${row['Current_Val']:,.0f}", expanded=False):
+        with st.expander(f"{row['Card_Name']} ┃ ${row['Current_Val']:,.0f}"):
             lc, rc = st.columns([0.4, 0.6])
             with lc:
                 st.image(row['Image_URL'] if pd.notna(row['Image_URL']) and str(row['Image_URL']).startswith('http') else "https://via.placeholder.com/300/161b22/30363d?text=NO+IMAGE", use_container_width=True)
             with rc:
-                # Progress Bar
-                safe_c = max(row['Unit_Cost'], 0.01)
-                meter = min(max((row['Current_Val'] / safe_c) * 50, 5), 100)
                 st.markdown(f'''
-                    <div style="font-size:12px; color:#8b949e; margin-bottom:5px;">VALUATION</div>
-                    <div class="p-bar-bg"><div class="p-bar-fill" style="width:{meter}%; background:{p_color}; shadow: 0 0 10px {p_color}44;"></div></div>
-                    <p>Price: <b>${row['Current_Val']:,.2f}</b> | P/L: <span style="color:{p_color}; font-weight:800;">${row['Net_Profit']:,.2f}</span></p>
+                    <p style="margin-bottom:2px; font-size:12px; color:#8b949e;">VALUATION</p>
+                    <p style="font-size:20px; font-weight:800; margin-top:0;">${row['Current_Val']:,.2f} <span style="font-size:14px; color:{p_color};">({row['ROI_Pct']:+.1f}%)</span></p>
+                    <p>Profit: <span style="color:{p_color}; font-weight:700;">${row['Net_Profit']:,.2f}</span></p>
                 ''', unsafe_allow_html=True)
                 
-                with st.popover("⚙️ ACTIONS"):
+                with st.popover("⚙️ MANAGE"):
                     with st.form(f"form_{row['gsheet_row']}"):
                         u_mkt = st.number_input("Market Price", value=float(row['Market_Price']))
-                        u_sel = st.number_input("Sold Price", value=float(row['Sell_Price']))
                         u_sta = st.selectbox("Status", ["Active", "Sold"], index=0 if str(row['Status']).lower() != 'sold' else 1)
+                        u_sel = st.number_input("Sold Price", value=float(row['Sell_Price']))
                         u_qty = st.number_input("Quantity", value=int(row['Quantity']))
                         u_fee = st.number_input("Grade Fee", value=float(row['Grade_Fee']))
                         u_grd = st.text_input("Grade", value=str(row['Grade_Score']))
-                        u_img = st.file_uploader("New Photo", type=['jpg', 'png'])
                         
-                        st.markdown('<div class="btn-update">', unsafe_allow_html=True)
                         if st.form_submit_button("SAVE"):
                             client = get_gspread_client()
                             sh = client.open_by_url(SHEET_NAME_URL).sheet1
                             r = int(row['gsheet_row'])
+                            # อัปเดตข้อมูลกลับไปยัง Google Sheet
                             sh.update_cell(r, 8, u_mkt); sh.update_cell(r, 11, u_sel); sh.update_cell(r, 12, u_sta)
                             sh.update_cell(r, 5, u_qty); sh.update_cell(r, 9, u_grd); sh.update_cell(r, 7, u_fee)
-                            if u_img:
-                                url = upload_to_imgbb(u_img)
-                                if url: sh.update_cell(r, 10, url)
                             st.cache_data.clear(); st.rerun()
-                        st.markdown('</div>', unsafe_allow_html=True)
                     
                     st.divider()
-                    conf = st.checkbox("Delete Asset?", key=f"c_{row['gsheet_row']}")
+                    conf = st.checkbox("Delete this row?", key=f"c_{row['gsheet_row']}")
                     st.markdown('<div class="btn-delete">', unsafe_allow_html=True)
-                    if st.button("DELETE", key=f"b_{row['gsheet_row']}", disabled=not conf):
+                    if st.button("CONFIRM DELETE", key=f"b_{row['gsheet_row']}", disabled=not conf):
                         client = get_gspread_client()
                         sh = client.open_by_url(SHEET_NAME_URL).sheet1
                         r = int(row['gsheet_row'])
@@ -184,24 +156,20 @@ if not df.empty:
 
     # ADD NEW
     st.divider()
-    with st.expander("➕ REGISTER NEW ASSET"):
-        with st.form("add_v13_4", clear_on_submit=True):
+    with st.expander("➕ ADD NEW ASSET"):
+        with st.form("add_new"):
             a_name = st.text_input("Name")
-            a_set = st.text_input("Set")
             a_buy = st.number_input("Buy ($)")
             a_mkt = st.number_input("Market ($)")
             a_qty = st.number_input("Qty", value=1)
-            a_fee = st.number_input("Fee ($)")
-            a_grd = st.text_input("Grade")
-            a_id = st.text_input("Serial ID")
             a_file = st.file_uploader("Photo", type=['jpg', 'png', 'jpeg'])
-            if st.form_submit_button("DEPLOY TO VAULT"):
+            if st.form_submit_button("DEPLOY"):
                 if a_name and a_file:
                     url = upload_to_imgbb(a_file)
                     if url:
                         client = get_gspread_client()
                         sh = client.open_by_url(SHEET_NAME_URL).sheet1
-                        sh.append_row([a_id, "Card", a_name, a_set, int(a_qty), a_buy, a_fee, a_mkt, a_grd, url, 0, "Active"])
+                        sh.append_row(["N/A", "Card", a_name, "N/A", int(a_qty), a_buy, 0, a_mkt, "N/A", url, 0, "Active"])
                         st.cache_data.clear(); st.rerun()
 else:
-    st.info("Awaiting data sync...")
+    st.info("Searching for your data... Please ensure your Google Sheet has at least one row of data.")

@@ -23,171 +23,173 @@ def upload_to_imgbb(file):
         return res.json()['data']['url']
     except: return None
 
-# --- UI DESIGN SYSTEM v13 (TOTAL CONTROL) ---
-st.set_page_config(page_title="THE VAULT PRO", layout="wide", page_icon="💎")
+# --- UI DESIGN SYSTEM ---
+st.set_page_config(page_title="VAULT PRO v13.1", layout="wide", page_icon="💎")
 
 st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    .stApp { background-color: #0d1117; font-family: 'Inter', sans-serif; }
-    h1, h2, h3 { color: #ffffff !important; font-weight: 800 !important; }
-    p, span, label { color: #f0f6fc !important; font-weight: 600 !important; }
+    .stApp { background-color: #0d1117; font-family: 'Inter', sans-serif; color: #ffffff; }
+    h1, h2, h3 { color: #ffffff !important; }
+    p, span, label, div { color: #f0f6fc !important; }
     
+    /* Better Input Visibility */
     .stTextInput input, .stSelectbox div[data-baseweb="select"], .stNumberInput input {
         background-color: #161b22 !important; color: #ffffff !important; 
         border: 1px solid #30363d !important; border-radius: 10px !important;
     }
     
+    /* Professional Metrics */
     [data-testid="stMetric"] { background: #161b22; border: 1px solid #30363d; border-radius: 16px; padding: 20px; }
     [data-testid="stMetricValue"] { color: #58a6ff !important; font-weight: 800 !important; }
 
-    .st-expander { background-color: #0d1117 !important; border: 1px solid #30363d !important; border-radius: 12px !important; margin-bottom: 10px !important; }
-
-    /* Button Themes */
-    .stButton button { border-radius: 10px !important; font-weight: 700 !important; height: 3rem; width: 100%; }
-    .btn-sync button { background: #238636 !important; color: white !important; border: none; }
-    .btn-update button { background: #1f6feb !important; color: white !important; border: none; }
-    .btn-delete button { background: #da3633 !important; color: white !important; border: none; }
+    /* Expanders & Popovers */
+    .st-expander { background-color: #0d1117 !important; border: 1px solid #30363d !important; border-radius: 12px !important; }
+    
+    /* Buttons */
+    .stButton button { border-radius: 10px !important; font-weight: 700 !important; height: 3.5rem; width: 100%; border: none !important; }
+    .btn-sync button { background: #238636 !important; color: white !important; }
+    .btn-update button { background: #1f6feb !important; color: white !important; }
+    .btn-delete button { background: #da3633 !important; color: white !important; }
     
     .p-bar-bg { background: #30363d; height: 10px; border-radius: 5px; width: 100%; margin: 12px 0; }
     .p-bar-fill { height: 100%; border-radius: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- DATA ENGINE ---
+# --- DATA ENGINE (PRECISION CLEANING) ---
 @st.cache_data(ttl=5)
 def load_data():
     try:
         raw = pd.read_csv(SHEET_URL)
-        # บันทึก Row Index เริ่มต้น (Row 1 คือ Header ดังนั้น Index 0 ใน DF คือ Row 2 ใน Sheet)
         raw['gsheet_row'] = raw.index + 2
         
-        for col in ['Quantity', 'Buy_Price', 'Grade_Fee', 'Market_Price', 'Sell_Price']:
+        # Clean numeric columns strictly
+        num_cols = ['Quantity', 'Buy_Price', 'Grade_Fee', 'Market_Price', 'Sell_Price']
+        for col in num_cols:
             if col in raw.columns:
-                raw[col] = pd.to_numeric(raw[col].astype(str).str.replace(',', '').str.replace('$', ''), errors='coerce').fillna(0)
+                raw[col] = (raw[col].astype(str)
+                           .str.replace(r'[$, ]', '', regex=True)
+                           .replace('', '0'))
+                raw[col] = pd.to_numeric(raw[col], errors='coerce').fillna(0)
         
+        # Logic: If Sold use Sell_Price, else use Market_Price
         raw['Unit_Cost'] = raw['Buy_Price'] + raw['Grade_Fee']
         raw['Total_Cost'] = raw['Unit_Cost'] * raw['Quantity']
-        raw['Current_Price'] = raw.apply(lambda x: x['Sell_Price'] if x['Status'] == 'Sold' else x['Market_Price'], axis=1)
+        raw['Current_Price'] = raw.apply(lambda x: x['Sell_Price'] if str(x['Status']).strip().lower() == 'sold' else x['Market_Price'], axis=1)
         raw['Total_Value'] = raw['Current_Price'] * raw['Quantity']
         raw['Net_Profit'] = raw['Total_Value'] - raw['Total_Cost']
         raw['ROI_Pct'] = (raw['Net_Profit'] / raw['Total_Cost'].replace(0, 0.01)) * 100
         return raw
-    except: return pd.DataFrame()
+    except Exception as e:
+        st.error(f"Error loading data: {e}")
+        return pd.DataFrame()
 
 df = load_data()
 
-# --- TOP NAVIGATION ---
-t_col1, t_col2 = st.columns([0.7, 0.3])
-with t_col1:
-    st.markdown("<h1 style='margin-bottom:0;'>VAULT ELITE v13</h1>", unsafe_allow_html=True)
-with t_col2:
+# --- TOP NAV ---
+c1, c2 = st.columns([0.7, 0.3])
+with c1:
+    st.markdown("<h1 style='margin:0;'>VAULT 13.1</h1>", unsafe_allow_html=True)
+with c2:
     st.markdown('<div class="btn-sync">', unsafe_allow_html=True)
-    if st.button("🔄 SYNC DATA"):
-        st.cache_data.clear()
-        st.rerun()
+    if st.button("🔄 REFRESH"):
+        st.cache_data.clear(); st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
 
 if not df.empty:
-    # Stats Overview
+    # Portfolio Snapshot
     m1, m2, m3 = st.columns(3)
-    m1.metric("PORTFOLIO VALUE", f"${df[df['Status'] != 'Sold']['Total_Value'].sum():,.0f}")
-    m2.metric("NET PROFIT", f"${df['Net_Profit'].sum():,.0f}", delta=f"{df['Net_Profit'].sum():+.0f}")
-    m3.metric("ALL-TIME ROI", f"{(df['Net_Profit'].sum() / df['Total_Cost'].sum() * 100 if df['Total_Cost'].sum() > 0 else 0):+.1f}%")
+    active_mask = df['Status'].astype(str).str.strip().lower() != 'sold'
+    m1.metric("HOLDING VALUE", f"${df[active_mask]['Total_Value'].sum():,.2f}")
+    m2.metric("NET P/L", f"${df['Net_Profit'].sum():,.2f}", delta=f"{df['Net_Profit'].sum():+.2f}")
+    m3.metric("ROI (%)", f"{(df['Net_Profit'].sum() / df['Total_Cost'].sum() * 100 if df['Total_Cost'].sum() > 0 else 0):+.1f}%")
 
     st.divider()
 
-    # Search & Sort
-    f_col1, f_col2 = st.columns([0.6, 0.4])
-    with f_col1: search_q = st.text_input("🔍 Search", placeholder="Find asset...")
-    with f_col2: sort_opt = st.selectbox("Order By", ["Latest", "Profit", "ROI %"])
+    # Search & View Control
+    sc1, sc2 = st.columns([0.6, 0.4])
+    q = sc1.text_input("🔍 Search", placeholder="Card name...")
+    sort_by = sc2.selectbox("Sort", ["Latest", "Profit ($)", "ROI %"])
 
     view_df = df.copy()
-    if search_q: view_df = view_df[view_df['Card_Name'].str.contains(search_q, case=False, na=False)]
-    
-    if sort_opt == "Profit": view_df = view_df.sort_values('Net_Profit', ascending=False)
-    elif sort_opt == "ROI %": view_df = view_df.sort_values('ROI_Pct', ascending=False)
+    if q: view_df = view_df[view_df['Card_Name'].astype(str).str.contains(q, case=False, na=False)]
+    if sort_by == "Profit ($)": view_df = view_df.sort_values('Net_Profit', ascending=False)
+    elif sort_by == "ROI %": view_df = view_df.sort_values('ROI_Pct', ascending=False)
     else: view_df = view_df.sort_index(ascending=False)
 
-    # Asset Display
+    # Collection List
     for idx, row in view_df.iterrows():
-        roi_clr = "#3fb950" if row['ROI_Pct'] >= 0 else "#f85149"
-        with st.expander(f"{row['Card_Name']} ┃ {row['ROI_Pct']:+.1f}%", expanded=False):
-            c_left, c_right = st.columns([0.4, 0.6])
-            with c_left:
+        p_color = "#3fb950" if row['Net_Profit'] >= 0 else "#f85149"
+        
+        with st.expander(f"{row['Card_Name']} ┃ ${row['Current_Price']:,.0f}", expanded=False):
+            l_col, r_col = st.columns([0.4, 0.6])
+            with l_col:
                 st.image(row['Image_URL'] if pd.notna(row['Image_URL']) else "https://via.placeholder.com/300/161b22/30363d", use_container_width=True)
-            with c_right:
-                # Value Progress
+            with r_col:
+                # Progress Bar
                 safe_cost = max(row['Unit_Cost'], 0.01)
-                meter_w = min(max((row['Current_Price'] / safe_cost) * 50, 5), 100)
+                meter = min(max((row['Current_Price'] / safe_cost) * 50, 5), 100)
                 st.markdown(f'''
-                    <div style="font-size:12px; color:#8b949e;">VALUE PROGRESSION</div>
-                    <div class="p-bar-bg"><div class="p-bar-fill" style="width:{meter_w}%; background:{roi_clr};"></div></div>
+                    <div style="font-size:12px; color:#8b949e; margin-bottom:5px;">VALUATION STATUS</div>
+                    <div class="p-bar-bg"><div class="p-bar-fill" style="width:{meter}%; background:{p_color}; box-shadow: 0 0 8px {p_color}66;"></div></div>
+                    <p style="margin: 10px 0;">Live Value: <b>${row['Current_Price']:,.2f}</b> | P/L: <span style="color:{p_color}; font-weight:800;">${row['Net_Profit']:,.2f}</span></p>
                 ''', unsafe_allow_html=True)
                 
-                st.markdown(f"**Live Value:** ${row['Current_Price']:,.2f} | **P/L:** <span style='color:{roi_clr};'>${row['Net_Profit']:,.2f}</span>", unsafe_allow_html=True)
-                
-                # --- MANAGE POPOVER ---
-                with st.popover("⚙️ MANAGE ASSET"):
-                    # 1. Update Form
-                    with st.form(f"update_{row['gsheet_row']}"):
-                        st.markdown("#### Update Data")
-                        u_mkt = st.number_input("Market ($)", value=float(row['Market_Price']))
-                        u_sel = st.number_input("Sold ($)", value=float(row['Sell_Price']))
-                        u_sta = st.selectbox("Status", ["Active", "Sold"], index=0 if row['Status'] != 'Sold' else 1)
+                # Management Popover
+                with st.popover("⚙️ ACTIONS"):
+                    with st.form(f"f_{row['gsheet_row']}"):
+                        st.markdown("#### 🛠️ Edit Information")
+                        u_mkt = st.number_input("Market Price", value=float(row['Market_Price']))
+                        u_sel = st.number_input("Sold Price", value=float(row['Sell_Price']))
+                        u_sta = st.selectbox("Status", ["Active", "Sold"], index=0 if str(row['Status']).lower() != 'sold' else 1)
                         u_qty = st.number_input("Qty", value=int(row['Quantity']))
-                        u_fee = st.number_input("Fee ($)", value=float(row['Grade_Fee']))
+                        u_fee = st.number_input("Grade Fee", value=float(row['Grade_Fee']))
                         u_grd = st.text_input("Grade", value=str(row['Grade_Score']))
-                        u_img = st.file_uploader("New Photo", type=['jpg', 'png'])
+                        u_img = st.file_uploader("Change Image", type=['jpg', 'png'])
                         
                         st.markdown('<div class="btn-update">', unsafe_allow_html=True)
-                        if st.form_submit_button("💾 SAVE CHANGES"):
+                        if st.form_submit_button("SAVE DATA"):
                             client = get_gspread_client()
                             sh = client.open_by_url(SHEET_NAME_URL).sheet1
-                            r_num = int(row['gsheet_row'])
-                            sh.update_cell(r_num, 8, u_mkt); sh.update_cell(r_num, 11, u_sel); sh.update_cell(r_num, 12, u_sta)
-                            sh.update_cell(r_num, 5, u_qty); sh.update_cell(r_num, 9, u_grd); sh.update_cell(r_num, 7, u_fee)
+                            r = int(row['gsheet_row'])
+                            sh.update_cell(r, 8, u_mkt); sh.update_cell(r, 11, u_sel); sh.update_cell(r, 12, u_sta)
+                            sh.update_cell(r, 5, u_qty); sh.update_cell(r, 9, u_grd); sh.update_cell(r, 7, u_fee)
                             if u_img:
                                 url = upload_to_imgbb(u_img)
-                                if url: sh.update_cell(r_num, 10, url)
+                                if url: sh.update_cell(r, 10, url)
                             st.cache_data.clear(); st.rerun()
                         st.markdown('</div>', unsafe_allow_html=True)
                     
                     st.divider()
-                    
-                    # 2. Delete Section
-                    st.markdown("#### 🗑️ Dangerous Area")
-                    confirm_del = st.checkbox(f"Confirm Delete: {row['Card_Name']}", key=f"del_chk_{row['gsheet_row']}")
+                    st.markdown("#### 🗑️ Remove Asset")
+                    confirm = st.checkbox(f"Permanently remove {row['Card_Name']}?", key=f"del_c_{row['gsheet_row']}")
                     st.markdown('<div class="btn-delete">', unsafe_allow_html=True)
-                    if st.button("🗑️ REMOVE FROM VAULT", key=f"del_btn_{row['gsheet_row']}", disabled=not confirm_del):
+                    if st.button("DELETE NOW", key=f"del_b_{row['gsheet_row']}", disabled=not confirm):
                         client = get_gspread_client()
                         sh = client.open_by_url(SHEET_NAME_URL).sheet1
-                        r_num = int(row['gsheet_row'])
-                        if r_num > 1: # Protection for Header
-                            sh.delete_rows(r_num)
-                            st.success(f"Row {r_num} removed successfully.")
+                        r = int(row['gsheet_row'])
+                        if r > 1:
+                            sh.delete_rows(r)
                             st.cache_data.clear(); st.rerun()
                     st.markdown('</div>', unsafe_allow_html=True)
 
     # ADD NEW
     st.divider()
-    with st.expander("➕ REGISTER NEW ASSET", expanded=False):
-        with st.form("add_v13", clear_on_submit=True):
-            a_name = st.text_input("Asset Name")
+    with st.expander("➕ ADD NEW ASSET", expanded=False):
+        with st.form("add_v13_1", clear_on_submit=True):
+            a_name = st.text_input("Card Name")
             a_set = st.text_input("Set Name")
-            c1, c2 = st.columns(2)
-            with c1:
-                a_buy = st.number_input("Buy ($)")
-                a_mkt = st.number_input("Market ($)")
-            with c2:
-                a_qty = st.number_input("Quantity", value=1)
-                a_fee = st.number_input("Fee ($)")
+            a_buy = st.number_input("Purchase Price ($)")
+            a_mkt = st.number_input("Market Price ($)")
+            a_qty = st.number_input("Quantity", value=1)
+            a_fee = st.number_input("Grading Fee ($)")
             a_grd = st.text_input("Grade")
             a_id = st.text_input("Serial ID")
-            a_file = st.file_uploader("Capture Image", type=['jpg', 'png', 'jpeg'])
+            a_file = st.file_uploader("Upload Image", type=['jpg', 'png', 'jpeg'])
             
-            if st.form_submit_button("🚀 DEPLOY TO VAULT"):
+            if st.form_submit_button("DEPLOY TO VAULT"):
                 if a_name and a_file:
                     url = upload_to_imgbb(a_file)
                     if url:
@@ -195,6 +197,5 @@ if not df.empty:
                         sh = client.open_by_url(SHEET_NAME_URL).sheet1
                         sh.append_row([a_id, "Card", a_name, a_set, int(a_qty), a_buy, a_fee, a_mkt, a_grd, url, 0, "Active"])
                         st.cache_data.clear(); st.rerun()
-                else: st.warning("Name & Photo required.")
 else:
-    st.info("System Ready. Waiting for Data...")
+    st.warning("No data found or connection lost.")

@@ -23,211 +23,188 @@ def upload_to_imgbb(file):
         return res.json()['data']['url']
     except: return None
 
-# --- UI DESIGN SYSTEM (TRENDY GLASSMORPHISM) ---
-st.set_page_config(page_title="VAULT 9.0", layout="wide", page_icon="💎")
+# --- UI DESIGN SYSTEM v10 (IPHONE NATIVE FEEL) ---
+st.set_page_config(page_title="ULTRA VAULT", layout="wide", page_icon="📟")
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
     
-    /* Global Reset */
+    /* Clean Base */
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    .stApp { background-color: #05070a; font-family: 'Inter', sans-serif; }
+    .stApp { background-color: #0a0a0c; font-family: 'Plus Jakarta Sans', sans-serif; }
     
-    /* High Contrast Typography */
-    h1, h2, h3 { color: #ffffff !important; font-weight: 800 !important; letter-spacing: -1px; }
-    p, span, label { color: #ffffff !important; font-weight: 500; }
-    
-    /* Trendy Metric Cards */
-    [data-testid="stMetric"] {
-        background: linear-gradient(135deg, #11141a 0%, #05070a 100%);
-        padding: 20px; border-radius: 20px; border: 1px solid #1f2833;
-        box-shadow: 0 10px 20px rgba(0,0,0,0.4);
-    }
-    [data-testid="stMetricValue"] { color: #00f2ff !important; font-weight: 800 !important; font-size: 32px !important; }
-    [data-testid="stMetricLabel"] { color: #8892b0 !important; text-transform: uppercase; letter-spacing: 1px; }
+    /* Remove unnecessary lines from Streamlit */
+    hr { border: none !important; margin: 10px 0 !important; }
+    .stSelectbox div[data-baseweb="select"] { border: none !important; background: #16161a !important; border-radius: 12px !important; }
+    .stTextInput input { border: none !important; background: #16161a !important; border-radius: 12px !important; color: white !important; }
 
-    /* Asset Card - Modern Glass Look */
-    .card-container {
-        background: #11141a;
-        border: 1px solid #1f2833;
+    /* Premium Metric Style */
+    [data-testid="stMetric"] {
+        background: #16161a; border-radius: 20px; padding: 20px; border: none !important;
+    }
+    [data-testid="stMetricValue"] { color: #00ffcc !important; font-weight: 800 !important; }
+    [data-testid="stMetricLabel"] { color: #8e8e93 !important; font-size: 13px !important; }
+
+    /* iPhone Modern Card */
+    .card-box {
+        background: #16161a;
         border-radius: 24px;
         padding: 16px;
-        margin-bottom: 24px;
-        transition: transform 0.3s ease, border-color 0.3s ease;
+        margin-bottom: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
     }
-    .card-container:hover { border-color: #00f2ff; transform: translateY(-5px); }
+    .card-title { color: #ffffff; font-size: 14px; font-weight: 700; height: 38px; overflow: hidden; margin-top: 10px; }
+    .card-price { color: #00ffcc; font-size: 22px; font-weight: 800; font-family: monospace; }
     
-    /* Badges */
-    .badge { font-size: 10px; font-weight: 800; padding: 5px 12px; border-radius: 10px; text-transform: uppercase; }
-    .badge-active { background: #00f2ff; color: #05070a !important; }
-    .badge-sold { background: #ff4d4d; color: #ffffff !important; }
-
-    /* iPhone Friendly Buttons */
+    /* Custom High Contrast Buttons */
     .stButton button {
-        background: linear-gradient(90deg, #00f2ff, #0072ff);
-        color: #ffffff !important; border: none; border-radius: 16px;
-        height: 3.5rem; font-weight: 800; font-size: 16px !important;
-        width: 100%; transition: 0.3s;
-    }
-    .stButton button:hover { box-shadow: 0 0 20px rgba(0, 242, 255, 0.4); }
-
-    /* Inputs & Forms */
-    .stTextInput input, .stNumberInput input, .stSelectbox div {
-        background-color: #11141a !important; color: #ffffff !important;
-        border: 1px solid #1f2833 !important; border-radius: 12px !important;
-        height: 3rem !important;
+        background: #00ffcc !important; color: #000000 !important;
+        border-radius: 16px !important; height: 3.8rem !important;
+        font-weight: 800 !important; border: none !important; width: 100% !important;
     }
     
-    /* Tab System Customization */
-    .stTabs [data-baseweb="tab-list"] { gap: 8px; background: #11141a; padding: 5px; border-radius: 15px; }
-    .stTabs [data-baseweb="tab"] {
-        height: 50px; border-radius: 12px; color: #8892b0 !important; font-weight: 700;
-    }
-    .stTabs [aria-selected="true"] { background: #1f2833 !important; color: #00f2ff !important; border: 1px solid #00f2ff !important; }
+    /* Floating Action style for New Asset */
+    .add-btn button { background: #ffffff !important; color: #000000 !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- DATA ENGINE ---
+# --- ENGINE ---
 @st.cache_data(ttl=5)
 def load_data():
     try:
         raw = pd.read_csv(SHEET_URL)
-        # Standardize Columns
         for col in ['Quantity', 'Buy_Price', 'Grade_Fee', 'Market_Price', 'Sell_Price']:
             if col in raw.columns:
                 raw[col] = pd.to_numeric(raw[col].astype(str).str.replace(',', '').str.replace('$', ''), errors='coerce').fillna(0)
-        
-        raw['Cost_Basis'] = raw['Buy_Price'] + raw['Grade_Fee']
-        raw['Live_Val'] = raw.apply(lambda x: x['Sell_Price'] if x['Status'] == 'Sold' else x['Market_Price'], axis=1)
-        raw['Net_Profit'] = (raw['Live_Val'] - raw['Cost_Basis']) * raw['Quantity']
-        raw['ROI_Pct'] = (raw['Net_Profit'] / (raw['Cost_Basis'] * raw['Quantity']).replace(0, 0.01)) * 100
+        raw['gsheet_row'] = raw.index + 2
+        raw['Cost_Total'] = raw['Buy_Price'] + raw['Grade_Fee']
+        raw['Current_Val'] = raw.apply(lambda x: x['Sell_Price'] if x['Status'] == 'Sold' else x['Market_Price'], axis=1)
+        raw['Profit'] = (raw['Current_Val'] - raw['Cost_Total']) * raw['Quantity']
+        raw['ROI'] = (raw['Profit'] / (raw['Cost_Total'] * raw['Quantity']).replace(0, 0.01)) * 100
         return raw
     except: return pd.DataFrame()
 
 df = load_data()
 
-# --- APP HEADER ---
-st.markdown("<h1 style='text-align: center; margin-bottom: 0;'>💎 THE VAULT</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #8892b0 !important; margin-bottom: 20px;'>ELITE ASSET TERMINAL v9.0</p>", unsafe_allow_html=True)
+# --- HEADER & STATS ---
+st.markdown("<h2 style='text-align: center; margin-top: -20px;'>📟 VAULT TERMINAL</h2>", unsafe_allow_html=True)
 
 if not df.empty:
-    # Top Utility Bar
-    ut_1, ut_2 = st.columns([0.8, 0.2])
-    with ut_2:
-        if st.button("🔄 REFRESH"):
-            st.cache_data.clear()
-            st.rerun()
-    
-    # Portfolio Highlights
     m1, m2, m3 = st.columns(3)
-    active_mask = df['Status'] != 'Sold'
-    m1.metric("HOLDING COST", f"${(df[active_mask]['Cost_Basis'] * df[active_mask]['Quantity']).sum():,.0f}")
-    m2.metric("PROFIT / LOSS", f"${df['Net_Profit'].sum():,.0f}", delta=f"{df['Net_Profit'].sum():+.0f}")
-    m3.metric("AVG ROI", f"{df['ROI_Pct'].mean():+.1f}%")
+    active_df = df[df['Status'] != 'Sold']
+    m1.metric("VAULT", f"${(active_df['Cost_Total'] * active_df['Quantity']).sum():,.0f}")
+    m2.metric("PROFIT", f"${df['Profit'].sum():,.0f}", delta=f"{df['Profit'].sum():+.0f}")
+    m3.metric("ROI", f"{df['ROI'].mean():+.1f}%")
 
     st.divider()
 
-    # Navigation Tabs
-    t_main, t_edit, t_add = st.tabs(["🖼️ PORTFOLIO", "🛠️ MANAGEMENT", "✨ NEW ASSET"])
+    # --- SINGLE VIEW ARCHITECTURE ---
+    tab_view, tab_add = st.tabs(["🖼️ PORTFOLIO", "➕ ADD NEW"])
 
-    with t_main:
-        # Trendy Search & Filter
-        s1, s2 = st.columns([0.6, 0.4])
-        search_q = s1.text_input("🔍 Search Vault", placeholder="Card name, Set, or ID...")
-        sort_by = s2.selectbox("Sort Priority", ["Latest First", "Highest Value", "Best ROI %"])
+    with tab_view:
+        # Mini Toolbar
+        t1, t2 = st.columns([0.6, 0.4])
+        query = t1.text_input("🔍 Search", placeholder="Find card...")
+        sort_opt = t2.selectbox("Sort", ["Latest", "ROI %", "Price"])
 
-        display_df = df.copy()
-        if search_q:
-            display_df = display_df[display_df['Card_Name'].str.contains(search_q, case=False, na=False)]
+        # Display Logic
+        view_df = df.copy()
+        if query:
+            view_df = view_df[view_df['Card_Name'].str.contains(query, case=False, na=False)]
         
-        if sort_by == "Highest Value": display_df = display_df.sort_values('Live_Val', ascending=False)
-        elif sort_by == "Best ROI %": display_df = display_df.sort_values('ROI_Pct', ascending=False)
-        else: display_df = display_df.sort_index(ascending=False)
+        if sort_opt == "ROI %": view_df = view_df.sort_values('ROI', ascending=False)
+        elif sort_opt == "Price": view_df = view_df.sort_values('Current_Val', ascending=False)
+        else: view_df = view_df.sort_index(ascending=False)
 
-        # Responsive Card Grid
-        grid_cols = st.columns(2)
-        for i in range(len(display_df)):
-            row = display_df.iloc[i]
-            with grid_cols[i % 2]:
-                is_sold = row['Status'] == 'Sold'
-                p_color = "#00f2ff" if row['ROI_Pct'] >= 0 else "#ff4d4d"
-                
+        # Portfolio Grid
+        grid = st.columns(2)
+        for i in range(len(view_df)):
+            row = view_df.iloc[i]
+            with grid[i % 2]:
                 st.markdown(f'''
-                    <div class="card-container">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                            <span class="badge {"badge-sold" if is_sold else "badge-active"}">{"SOLD" if is_sold else "IN VAULT"}</span>
-                            <span style="color:{p_color}; font-weight:800; font-size:18px;">{row['ROI_Pct']:+.1f}%</span>
+                    <div class="card-box">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="color:{'#00ffcc' if row['Status'] != 'Sold' else '#ff4444'}; font-size:10px; font-weight:800;">● {row['Status'].upper()}</span>
+                            <span style="color:#ffffff; font-size:12px; font-weight:800;">{row['ROI']:+.1f}%</span>
                         </div>
-                        <div style="font-size: 15px; font-weight: 800; color: #ffffff; margin-bottom: 12px; height: 40px; overflow: hidden;">{row['Card_Name']}</div>
+                        <div class="card-title">{row['Card_Name']}</div>
                 ''', unsafe_allow_html=True)
                 
-                img_url = row.get('Image_URL', "")
-                st.image(img_url if (pd.notna(img_url) and str(img_url).startswith('http')) else "https://via.placeholder.com/400x560/11141a/1f2833?text=NO+IMAGE", use_container_width=True)
+                st.image(row['Image_URL'] if pd.notna(row['Image_URL']) else "https://via.placeholder.com/300/16161a/333?text=NO+IMAGE", use_container_width=True)
                 
                 st.markdown(f'''
-                        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #1f2833;">
-                            <div style="color: {p_color}; font-size: 26px; font-weight: 800; font-family: monospace;">${row['Live_Val']:,.2f}</div>
-                            <div style="color: #8892b0; font-size: 12px; margin-top: 4px;">{row['Grade_Score']} • P/L: ${row['Net_Profit']:,.2f}</div>
+                        <div style="margin-top:10px; text-align:center;">
+                            <div class="card-price">${row['Current_Val']:,.2f}</div>
                         </div>
                     </div>
                 ''', unsafe_allow_html=True)
+                
+                # THE MAGIC BUTTON: Edit inside the card
+                if st.button(f"EDIT DATA", key=f"edit_{row['gsheet_row']}"):
+                    st.session_state.edit_mode = row['gsheet_row']
 
-    with t_edit:
-        st.subheader("🛠️ Update Asset Intelligence")
-        target_card = st.selectbox("Select Asset to Modify", df['Card_Name'].tolist())
-        r_data = df[df['Card_Name'] == target_card].iloc[0]
-        r_idx = df[df['Card_Name'] == target_card].index[0]
+        # --- MODAL-STYLE EDIT OVERLAY ---
+        if 'edit_mode' in st.session_state:
+            target_row = df[df['gsheet_row'] == st.session_state.edit_mode].iloc[0]
+            st.markdown(f"### ⚙️ Managing: {target_row['Card_Name']}")
+            
+            with st.form("quick_edit"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    u_mkt = st.number_input("Market Value ($)", value=float(target_row['Market_Price']))
+                    u_qty = st.number_input("Quantity", value=int(target_row['Quantity']))
+                    u_sta = st.selectbox("Status", ["Active", "Sold"], index=0 if target_row['Status'] != 'Sold' else 1)
+                with c2:
+                    u_sel = st.number_input("Sold For ($)", value=float(target_row['Sell_Price']))
+                    u_fee = st.number_input("Grade Fee ($)", value=float(target_row['Grade_Fee']))
+                    u_grd = st.text_input("Grade Score", value=str(target_row['Grade_Score']))
+                
+                u_img = st.file_uploader("Update Photo", type=['jpg', 'png'])
+                
+                eb1, eb2 = st.columns(2)
+                if eb1.form_submit_button("💾 SAVE CHANGES"):
+                    client = get_gspread_client()
+                    sh = client.open_by_url(SHEET_NAME_URL).sheet1
+                    r = int(target_row['gsheet_row'])
+                    sh.update_cell(r, 8, u_mkt); sh.update_cell(r, 11, u_sel); sh.update_cell(r, 12, u_sta)
+                    sh.update_cell(r, 5, u_qty); sh.update_cell(r, 9, u_grd); sh.update_cell(r, 7, u_fee)
+                    if u_img:
+                        url = upload_to_imgbb(u_img)
+                        if url: sh.update_cell(r, 10, url)
+                    del st.session_state.edit_mode
+                    st.cache_data.clear(); st.rerun()
+                
+                if eb2.form_submit_button("❌ CANCEL"):
+                    del st.session_state.edit_mode
+                    st.rerun()
 
-        with st.form("edit_form_v9"):
-            col_a, col_b = st.columns(2)
-            with col_a:
-                new_mkt = st.number_input("Live Market Value ($)", value=float(r_data['Market_Price']))
-                new_status = st.selectbox("Lifecycle Status", ["Active", "Sold"], index=0 if r_data['Status'] != 'Sold' else 1)
-                new_qty = st.number_input("Quantity", value=int(r_data['Quantity']))
-            with col_b:
-                new_sell = st.number_input("Final Sale Price ($)", value=float(r_data['Sell_Price']))
-                new_grade = st.text_input("Grade Label", value=str(r_data['Grade_Score']))
-                new_fee = st.number_input("Grading Investment ($)", value=float(r_data['Grade_Fee']))
+    with tab_add:
+        with st.form("add_new_iphone"):
+            st.subheader("➕ Register Asset")
+            a_name = st.text_input("Card Name")
+            a_set = st.text_input("Set Name")
+            ac1, ac2 = st.columns(2)
+            with ac1:
+                a_buy = st.number_input("Buy ($)")
+                a_mkt = st.number_input("Market ($)")
+            with ac2:
+                a_qty = st.number_input("Qty", value=1)
+                a_fee = st.number_input("Fee ($)")
             
-            new_img = st.file_uploader("Replace Visual Proof", type=['jpg', 'png'])
+            a_grd = st.text_input("Grade Score")
+            a_id = st.text_input("Serial ID")
+            a_file = st.file_uploader("Take Photo", type=['jpg', 'png', 'jpeg'])
             
-            if st.form_submit_button("⚡ UPDATE SECURE RECORD"):
-                client = get_gspread_client()
-                sh = client.open_by_url(SHEET_NAME_URL).sheet1
-                row_num = int(r_idx) + 2
-                sh.update_cell(row_num, 8, new_mkt); sh.update_cell(row_num, 11, new_sell); sh.update_cell(row_num, 12, new_status)
-                sh.update_cell(row_num, 5, new_qty); sh.update_cell(row_num, 9, new_grade); sh.update_cell(row_num, 7, new_fee)
-                if new_img:
-                    url = upload_to_imgbb(new_img)
-                    if url: sh.update_cell(row_num, 10, url)
-                st.cache_data.clear(); st.rerun()
-
-    with t_add:
-        st.subheader("✨ Deploy New Asset to Vault")
-        with st.form("add_form_v9", clear_on_submit=True):
-            a_name = st.text_input("Card Full Name")
-            a_set = st.text_input("Set / Collection")
-            c_1, c_2 = st.columns(2)
-            with c_1:
-                a_buy = st.number_input("Purchase Price ($)")
-                a_mkt = st.number_input("Initial Market ($)")
-            with c_2:
-                a_qty = st.number_input("Quantity", value=1)
-                a_fee = st.number_input("Grading Fee ($)")
-            
-            a_grd = st.text_input("Grade (PSA/BGS/CGC)")
-            a_id = st.text_input("Serial / Asset ID")
-            a_pic = st.file_uploader("Capture Image Proof", type=['jpg', 'png', 'jpeg'])
-            
-            if st.form_submit_button("🚀 INITIATE DEPLOYMENT"):
-                if a_name and a_pic:
-                    url = upload_to_imgbb(a_pic)
+            if st.form_submit_button("🚀 DEPLOY TO VAULT"):
+                if a_name and a_file:
+                    url = upload_to_imgbb(a_file)
                     if url:
                         client = get_gspread_client()
                         sh = client.open_by_url(SHEET_NAME_URL).sheet1
                         sh.append_row([a_id, "Card", a_name, a_set, int(a_qty), a_buy, a_fee, a_mkt, a_grd, url, 0, "Active"])
                         st.cache_data.clear(); st.rerun()
-                else: st.warning("Identity & Image required.")
+                else: st.warning("Name & Photo required.")
+
 else:
-    st.error("⚠️ SECURE CONNECTION FAILED. CHECK GOOGLE SHEET CONFIG.")
+    st.info("VAULT DISCONNECTED. CHECK SHEETS.")

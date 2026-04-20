@@ -23,60 +23,64 @@ def upload_to_imgbb(file):
         return res.json()['data']['url']
     except: return None
 
-# --- UI PREMIUM THEME ---
-st.set_page_config(page_title="PRO VAULT | BOSS TANG", layout="wide", page_icon="📈")
+# --- UI IPHONE OPTIMIZED & HIGH CONTRAST ---
+st.set_page_config(page_title="PRO VAULT", layout="wide", page_icon="📟")
 
 st.markdown("""
     <style>
-    /* Hide Streamlit elements */
+    /* Force high contrast for iPhone */
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
     
-    /* Global Styles */
-    .stApp { background-color: #0b0c10; color: #E0E0E0; }
-    h1, h2, h3 { color: #00f2ff !important; font-family: 'Inter', sans-serif; }
+    .stApp { background-color: #000000; color: #FFFFFF; }
     
-    /* Metrics Area */
+    /* Text Brightness */
+    h1, h2, h3 { color: #00ffff !important; font-weight: 800; text-shadow: 0px 0px 5px rgba(0,255,255,0.2); }
+    p, span, label, .stMarkdown { color: #FFFFFF !important; font-weight: 600 !important; }
+    
+    /* Metric Cards - High Visibility */
     [data-testid="stMetric"] {
-        background: rgba(31, 40, 51, 0.4);
-        padding: 15px;
+        background: #1a1a1a;
+        padding: 20px;
         border-radius: 15px;
-        border: 1px solid #1f2833;
+        border: 2px solid #333333;
+        margin-bottom: 10px;
     }
-    [data-testid="stMetricValue"] { color: #00f2ff !important; font-size: 32px !important; font-family: monospace; }
+    [data-testid="stMetricValue"] { color: #00ffff !important; font-size: 35px !important; }
+    [data-testid="stMetricLabel"] { color: #aaaaaa !important; font-size: 14px !important; }
 
-    /* Enhanced Card Design */
+    /* Asset Card Design */
     .card-frame { 
-        border: 1px solid #1f2833; padding: 18px; border-radius: 22px; 
-        background: linear-gradient(145deg, #161b22, #0d1117);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-        text-align: center; margin-bottom: 25px;
-        position: relative;
-        overflow: hidden;
+        border: 2px solid #333333; padding: 15px; border-radius: 20px; 
+        background: #121212;
+        text-align: center; margin-bottom: 20px;
     }
     
-    /* ROI Glow Effect */
-    .roi-positive { border-bottom: 3px solid #00ff88; }
-    .roi-negative { border-bottom: 3px solid #ff4444; }
-
-    .status-badge { font-size: 10px; font-weight: bold; padding: 4px 12px; border-radius: 50px; text-transform: uppercase; }
-    .active-badge { background: rgba(0, 255, 136, 0.1); color: #00ff88 !important; border: 1px solid #00ff88; }
-    .sold-badge { background: rgba(255, 68, 68, 0.1); color: #ff4444 !important; border: 1px solid #ff4444; }
+    .status-badge { font-size: 11px; font-weight: 900; padding: 5px 12px; border-radius: 8px; }
+    .active-badge { background: #00ff88; color: #000000 !important; }
+    .sold-badge { background: #ff4444; color: #ffffff !important; }
     
-    /* Buttons */
+    /* iPhone Friendly Buttons & Inputs */
     .stButton button { 
-        border-radius: 14px; background: linear-gradient(90deg, #45a29e, #66fcf1); 
-        color: #0b0c10 !important; font-weight: 800; border: none; height: 3.8em;
-        transition: all 0.3s ease;
+        border-radius: 15px; background: #00ffff; color: #000000 !important; 
+        font-weight: 900; height: 4em; width: 100%; border: none;
+        font-size: 18px !important;
     }
-    .stButton button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 252, 241, 0.4); }
     
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] { gap: 15px; }
-    .stTabs [data-baseweb="tab"] {
-        background-color: transparent; border-radius: 12px; padding: 12px 25px; color: #888 !important;
-        border: 1px solid #1f2833;
+    /* Forms & Selectboxes for Thumbs */
+    input, select, textarea, .stSelectbox div {
+        background-color: #1a1a1a !important; color: #ffffff !important; 
+        border: 1px solid #444 !important; height: 3em !important;
     }
-    .stTabs [aria-selected="true"] { background-color: #45a29e !important; color: #0b0c10 !important; border: none !important; }
+
+    /* Tab Styling */
+    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #1a1a1a; border-radius: 12px; padding: 15px; 
+        color: #FFFFFF !important; border: 1px solid #333;
+    }
+    .stTabs [aria-selected="true"] { 
+        background-color: #00ffff !important; color: #000000 !important; font-weight: bold !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -101,99 +105,90 @@ def load_data():
 df = load_data()
 
 # --- HEADER ---
-header_col1, header_col2 = st.columns([0.7, 0.3])
-with header_col1:
-    st.title("📈 MASTER VAULT v8.0")
-    st.caption("ELITE ASSET TRACKING SYSTEM")
-with header_col2:
-    privacy_mode = st.toggle("🔒 Privacy", value=False)
-    if st.button("🔄 REFRESH SYSTEM"):
+h1, h2 = st.columns([0.6, 0.4])
+with h1:
+    st.title("📟 VAULT 8.1")
+with h2:
+    if st.button("🔄 REFRESH"):
         st.cache_data.clear()
         st.rerun()
+    privacy_mode = st.toggle("🔒 Privacy", value=False)
 
 if not df.empty:
     def f_v(v): return "********" if privacy_mode else f"${v:,.2f}"
     
-    # Global Metrics
+    # Global Metrics (Vertical on Mobile)
     m1, m2, m3 = st.columns(3)
     active_m = df['Status'] != 'Sold'
-    total_cost = (df[active_m]['Unit_Cost'] * df[active_m]['Quantity']).sum()
-    total_p_l = df['Total_Profit'].sum()
-    
-    m1.metric("VAULT VALUE", f_v(total_cost))
-    m2.metric("PROFIT/LOSS", f_v(total_p_l), delta=None if privacy_mode else f"{total_p_l:+.2f}")
-    m3.metric("AVG ROI", f"{(total_p_l / (df['Unit_Cost'] * df['Quantity']).sum() * 100):+.1f}%")
+    m1.metric("VAULT NET", f_v((df[active_m]['Unit_Cost'] * df[active_m]['Quantity']).sum()))
+    m2.metric("P/L", f_v(df['Total_Profit'].sum()))
+    m3.metric("ROI", f"{(df['Total_Profit'].sum() / (df['Unit_Cost'] * df['Quantity']).sum() * 100):+.1f}%")
 
     st.divider()
 
-    t_port, t_mgmt, t_add = st.tabs(["🖼️ PORTFOLIO", "⚙️ CONTROL", "➕ REGISTER"])
+    t_port, t_mgmt, t_add = st.tabs(["🖼️ ASSETS", "⚙️ EDIT", "➕ ADD"])
 
     with t_port:
-        f1, f2, f3 = st.columns([0.4, 0.3, 0.3])
-        query = f1.text_input("🔍 Search", placeholder="Card or Set Name...")
-        s_filter = f2.selectbox("Filter Status", ["All", "Active", "Sold"])
-        o_filter = f3.selectbox("Sort by", ["Newest", "Value (High)", "ROI % (High)"])
+        q = st.text_input("🔍 Search Card Name...", placeholder="Type here...")
+        c1, c2 = st.columns(2)
+        s_filter = c1.selectbox("Status", ["All", "Active", "Sold"])
+        o_filter = c2.selectbox("Order", ["Latest", "Value", "ROI"])
 
-        # Process View
+        # Filter Logic
         view_df = df.copy()
-        if query:
-            view_df = view_df[view_df['Card_Name'].str.contains(query, case=False, na=False) | 
-                             view_df['Set_Name'].str.contains(query, case=False, na=False)]
+        if q:
+            view_df = view_df[view_df['Card_Name'].str.contains(q, case=False, na=False)]
         if s_filter == "Active": view_df = view_df[view_df['Status'] != 'Sold']
         elif s_filter == "Sold": view_df = view_df[view_df['Status'] == 'Sold']
 
-        if o_filter == "Value (High)": view_df = view_df.sort_values('Current_Value', ascending=False)
-        elif o_filter == "ROI % (High)": view_df = view_df.sort_values('ROI', ascending=False)
+        if o_filter == "Value": view_df = view_df.sort_values('Current_Value', ascending=False)
+        elif o_filter == "ROI": view_df = view_df.sort_values('ROI', ascending=False)
         else: view_df = view_df.sort_index(ascending=False)
 
-        # Render Grid
+        # Render Grid (Optimized for iPhone Scrolling)
         cols = st.columns(2)
         for i in range(len(view_df)):
             row = view_df.iloc[i]
             with cols[i % 2]:
                 is_sold = row['Status'] == 'Sold'
                 p_color = "#00ff88" if row['ROI'] >= 0 else "#ff4444"
-                roi_class = "roi-positive" if row['ROI'] >= 0 else "roi-negative"
                 
                 st.markdown(f'''
-                    <div class="card-frame {roi_class}">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <div class="card-frame">
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
                             <span class="status-badge {"sold-badge" if is_sold else "active-badge"}">{"SOLD" if is_sold else "ACTIVE"}</span>
-                            <span style="color:{p_color}; font-weight:900; font-family:monospace; font-size:16px;">{row['ROI']:+.1f}%</span>
+                            <span style="color:{p_color}; font-weight:900;">{row['ROI']:+.1f}%</span>
                         </div>
-                        <div style="font-weight:700; font-size:15px; color:#ffffff; height:38px; line-height:1.2; overflow:hidden; margin-bottom:10px;">{row['Card_Name']}</div>
+                        <div style="color:#FFFFFF; font-size:14px; font-weight:bold; height:35px; overflow:hidden; margin-bottom:5px;">{row['Card_Name']}</div>
                 ''', unsafe_allow_html=True)
                 
                 img = row.get('Image_URL', "")
-                st.image(img if (pd.notna(img) and str(img).startswith('http')) else "https://via.placeholder.com/300/111/45a29e?text=NO+IMAGE", use_container_width=True)
+                st.image(img if (pd.notna(img) and str(img).startswith('http')) else "https://via.placeholder.com/300/222/00ffff?text=NO+IMAGE", use_container_width=True)
                 
                 st.markdown(f"""
-                        <div style="margin-top:15px; padding-top:10px; border-top: 1px solid #1f2833;">
-                            <div style="color:{p_color}; font-size:24px; font-weight:800; font-family:monospace;">{f_v(row['Current_Value'])}</div>
-                            <div style="color:#888; font-size:11px; margin-top:5px; font-weight:bold;">{row['Grade_Score']} | P/L: {f_v(row['Total_Profit'])}</div>
+                        <div style="margin-top:10px;">
+                            <div style="color:{p_color}; font-size:22px; font-weight:900; font-family:monospace;">{f_v(row['Current_Value'])}</div>
+                            <div style="color:#FFFFFF; font-size:11px; margin-top:2px;">{row['Grade_Score']} | P/L: {f_v(row['Total_Profit'])}</div>
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
 
     with t_mgmt:
-        target = st.selectbox("🎯 Select Card", df['Card_Name'].tolist())
+        target = st.selectbox("🎯 Target Asset", df['Card_Name'].tolist())
         r_idx = df[df['Card_Name'] == target].index[0]
         
-        st.success(f"💎 Break-even Intel: **{f_v(df.at[r_idx, 'Unit_Cost'])}**")
+        st.info(f"💎 Break-even: {f_v(df.at[r_idx, 'Unit_Cost'])}")
         
-        with st.form("elite_edit_v8"):
-            e1, e2 = st.columns(2)
-            with e1:
-                u_mkt = st.number_input("Market Price ($)", value=float(df.at[r_idx, 'Market_Price']))
-                u_sel = st.number_input("Final Sale ($)", value=float(df.at[r_idx, 'Sell_Price']))
-                u_sta = st.selectbox("Asset Status", ["Active", "Sold"], index=0 if df.at[r_idx, 'Status'] != 'Sold' else 1)
-            with e2:
-                u_qty = st.number_input("Qty", value=int(df.at[r_idx, 'Quantity']))
-                u_grd = st.text_input("Grade", value=str(df.at[r_idx, 'Grade_Score']))
-                u_fee = st.number_input("Grading Fee ($)", value=float(df.at[r_idx, 'Grade_Fee']))
+        with st.form("iphone_edit"):
+            u_mkt = st.number_input("Market Price ($)", value=float(df.at[r_idx, 'Market_Price']))
+            u_sel = st.number_input("Sell Price ($)", value=float(df.at[r_idx, 'Sell_Price']))
+            u_sta = st.selectbox("Status", ["Active", "Sold"], index=0 if df.at[r_idx, 'Status'] != 'Sold' else 1)
+            u_qty = st.number_input("Qty", value=int(df.at[r_idx, 'Quantity']))
+            u_grd = st.text_input("Grade", value=str(df.at[r_idx, 'Grade_Score']))
+            u_fee = st.number_input("Fee ($)", value=float(df.at[r_idx, 'Grade_Fee']))
+            u_pic = st.file_uploader("Update Photo", type=['jpg', 'png'])
             
-            u_pic = st.file_uploader("Update Visual Asset", type=['jpg', 'png'])
-            if st.form_submit_button("💾 UPDATE CLOUD RECORD"):
+            if st.form_submit_button("💾 SYNC DATA"):
                 client = get_gspread_client()
                 sh = client.open_by_url(SHEET_NAME_URL).sheet1
                 r = int(r_idx) + 2
@@ -205,24 +200,20 @@ if not df.empty:
                 st.cache_data.clear(); st.rerun()
 
     with t_add:
-        with st.form("elite_add_v8", clear_on_submit=True):
-            st.markdown("### ➕ Add New Investment")
-            a_name = st.text_input("Name")
-            a_cat = st.selectbox("Category", ["One Piece", "Pokemon", "F1", "Others"])
-            a_set = st.text_input("Set")
-            a1, a2 = st.columns(2)
-            with a1:
-                a_buy = st.number_input("Buy ($)")
-                a_qty = st.number_input("Quantity", value=1)
-            with a2:
-                a_fee = st.number_input("Grade Fee ($)")
-                a_mkt = st.number_input("Market ($)")
-            
+        with st.form("iphone_add", clear_on_submit=True):
+            st.subheader("➕ New Entry")
+            a_name = st.text_input("Card Name")
+            a_cat = st.selectbox("Type", ["One Piece", "Pokemon", "F1", "Others"])
+            a_set = st.text_input("Set Name")
+            a_buy = st.number_input("Buy Price ($)")
+            a_fee = st.number_input("Grade Fee ($)")
+            a_mkt = st.number_input("Market Price ($)")
+            a_qty = st.number_input("Quantity", value=1)
             a_grd = st.text_input("Grade Score")
             a_id = st.text_input("Asset ID")
             a_file = st.file_uploader("Upload Image", type=['jpg', 'png', 'jpeg'])
             
-            if st.form_submit_button("🚀 DEPLOY TO VAULT"):
+            if st.form_submit_button("🚀 DEPLOY ASSET"):
                 if a_name and a_file:
                     url = upload_to_imgbb(a_file)
                     if url:
@@ -230,6 +221,6 @@ if not df.empty:
                         sh = client.open_by_url(SHEET_NAME_URL).sheet1
                         sh.append_row([a_id, a_cat, a_name, a_set, int(a_qty), a_buy, a_fee, a_mkt, a_grd, url, 0, "Active"])
                         st.cache_data.clear(); st.rerun()
-                else: st.warning("Name and Photo are required.")
+                else: st.warning("Required: Name & Photo")
 else:
-    st.info("System Ready. Waiting for Data...")
+    st.info("No data connected.")

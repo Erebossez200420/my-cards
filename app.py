@@ -23,25 +23,70 @@ def upload_to_imgbb(file):
         return res.json()['data']['url']
     except: return None
 
-# --- UI DESIGN SYSTEM ---
-st.set_page_config(page_title="PRO VAULT v11.1", layout="wide", page_icon="📈")
+# --- UI DESIGN SYSTEM v12 (HIGH CONTRAST PRO) ---
+st.set_page_config(page_title="THE VAULT PRO", layout="wide", page_icon="💎")
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+    
+    /* Clean Base Setup */
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    .stApp { background-color: #050505; font-family: 'Inter', sans-serif; }
-    p, span, label, .stMarkdown { color: #FFFFFF !important; }
-    .st-expander { background-color: #111111 !important; border: 1px solid #222 !important; border-radius: 20px !important; margin-bottom: 10px !important; }
-    [data-testid="stMetric"] { background: #111111; border-radius: 20px; padding: 15px; border: 1px solid #333; }
-    [data-testid="stMetricValue"] { color: #00f2ff !important; font-size: 28px !important; font-weight: 800 !important; }
-    .stButton button { background: #00f2ff !important; color: #000 !important; border-radius: 12px !important; font-weight: 800 !important; height: 3.5rem !important; width: 100%; border: none; }
-    .p-bar-bg { background: #222; height: 8px; border-radius: 10px; width: 100%; margin: 10px 0; overflow: hidden; }
-    .p-bar-fill { height: 100%; border-radius: 10px; }
+    .stApp { background-color: #0d1117; font-family: 'Inter', sans-serif; }
+    
+    /* Typography Overrides for Visibility */
+    h1, h2, h3 { color: #ffffff !important; font-weight: 800 !important; letter-spacing: -0.5px; }
+    p, span, label { color: #f0f6fc !important; font-weight: 600 !important; }
+    small { color: #8b949e !important; }
+
+    /* Filter & Input Box Contrast Fix */
+    .stTextInput input, .stSelectbox div[data-baseweb="select"], .stNumberInput input {
+        background-color: #161b22 !important; 
+        color: #ffffff !important; 
+        border: 1px solid #30363d !important; 
+        border-radius: 10px !important;
+        font-weight: 500 !important;
+    }
+    
+    /* Metric Enhancement */
+    [data-testid="stMetric"] {
+        background: #161b22;
+        border: 1px solid #30363d;
+        border-radius: 16px;
+        padding: 20px;
+    }
+    [data-testid="stMetricValue"] { color: #58a6ff !important; font-weight: 800 !important; }
+    [data-testid="stMetricLabel"] { color: #8b949e !important; font-size: 14px !important; }
+
+    /* Professional Card Styling */
+    .st-expander {
+        background-color: #0d1117 !important;
+        border: 1px solid #30363d !important;
+        border-radius: 12px !important;
+        margin-bottom: 10px !important;
+    }
+    .st-expander:hover { border-color: #58a6ff !important; }
+
+    /* Action Buttons */
+    .stButton button {
+        background: linear-gradient(180deg, #1f6feb 0%, #1158c7 100%) !important;
+        color: #ffffff !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+        border: 1px solid rgba(255,255,255,0.1) !important;
+        height: 3rem;
+    }
+    
+    /* Sync Button Specific */
+    div.stButton > button:first-child { background: #238636 !important; border: none; }
+
+    /* Investment Bar */
+    .p-bar-bg { background: #30363d; height: 10px; border-radius: 5px; width: 100%; margin: 12px 0; }
+    .p-bar-fill { height: 100%; border-radius: 5px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- DATA LOADING ---
+# --- DATA ENGINE ---
 @st.cache_data(ttl=5)
 def load_data():
     try:
@@ -51,109 +96,137 @@ def load_data():
                 raw[col] = pd.to_numeric(raw[col].astype(str).str.replace(',', '').str.replace('$', ''), errors='coerce').fillna(0)
         raw['gsheet_row'] = raw.index + 2
         raw['Unit_Cost'] = raw['Buy_Price'] + raw['Grade_Fee']
-        raw['Cost_Total'] = raw['Unit_Cost'] * raw['Quantity']
-        raw['Current_Val'] = raw.apply(lambda x: x['Sell_Price'] if x['Status'] == 'Sold' else x['Market_Price'], axis=1)
-        raw['Current_Total_Val'] = raw['Current_Val'] * raw['Quantity']
-        raw['Profit'] = raw['Current_Total_Val'] - raw['Cost_Total']
-        raw['ROI'] = (raw['Profit'] / raw['Cost_Total'].replace(0, 0.01)) * 100
+        raw['Total_Cost'] = raw['Unit_Cost'] * raw['Quantity']
+        raw['Current_Price'] = raw.apply(lambda x: x['Sell_Price'] if x['Status'] == 'Sold' else x['Market_Price'], axis=1)
+        raw['Total_Value'] = raw['Current_Price'] * raw['Quantity']
+        raw['Net_Profit'] = raw['Total_Value'] - raw['Total_Cost']
+        raw['ROI_Pct'] = (raw['Net_Profit'] / raw['Total_Cost'].replace(0, 0.01)) * 100
         return raw
     except: return pd.DataFrame()
 
 df = load_data()
 
-# --- APP UI ---
-c_head, c_refresh = st.columns([0.7, 0.3])
-with c_head:
-    st.markdown("<h1 style='margin:0;'>VAULT 11.1</h1>", unsafe_allow_html=True)
-with c_refresh:
-    if st.button("🔄 SYNC"):
+# --- TOP NAVIGATION ---
+t_col1, t_col2 = st.columns([0.7, 0.3])
+with t_col1:
+    st.markdown("<h1 style='margin-bottom:0;'>VAULT ELITE</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#8b949e !important; margin-top:0;'>Terminal v12.0 • Secured Access</p>", unsafe_allow_html=True)
+with t_col2:
+    if st.button("🔄 SYNC DATA"):
         st.cache_data.clear()
         st.rerun()
 
 if not df.empty:
+    # Portfolio Overview
     m1, m2, m3 = st.columns(3)
-    active_df = df[df['Status'] != 'Sold']
-    m1.metric("PORTFOLIO", f"${active_df['Current_Total_Val'].sum():,.0f}")
-    m2.metric("TOTAL P/L", f"${df['Profit'].sum():,.0f}", delta=f"{df['Profit'].sum():+.0f}")
-    m3.metric("ROI", f"{(df['Profit'].sum() / df['Cost_Total'].sum() * 100 if df['Cost_Total'].sum() > 0 else 0):+.1f}%")
+    active_mask = df['Status'] != 'Sold'
+    m1.metric("PORTFOLIO VALUE", f"${df[active_mask]['Total_Value'].sum():,.0f}")
+    m2.metric("NET P/L", f"${df['Net_Profit'].sum():,.0f}", delta=f"{df['Net_Profit'].sum():+.0f}")
+    m3.metric("ALL-TIME ROI", f"{(df['Net_Profit'].sum() / df['Total_Cost'].sum() * 100 if df['Total_Cost'].sum() > 0 else 0):+.1f}%")
 
     st.divider()
 
-    s1, s2 = st.columns([0.6, 0.4])
-    q = s1.text_input("🔍 Search Asset...", placeholder="Name, Set, Serial")
-    sort_by = s2.selectbox("Order", ["Latest", "Highest Profit", "Best ROI %"])
+    # Advanced Filters
+    st.markdown("### 🔍 Filters & Intelligence")
+    f_col1, f_col2 = st.columns([0.6, 0.4])
+    with f_col1:
+        search_query = st.text_input("Search Asset", placeholder="Card name, set, or serial number...")
+    with f_col2:
+        sort_option = st.selectbox("Sort Order", ["Latest Acquisitions", "Top Profit", "Top ROI %", "Market Value"])
 
+    # Processing View
     view_df = df.copy()
-    if q:
-        view_df = view_df[view_df['Card_Name'].str.contains(q, case=False, na=False)]
+    if search_query:
+        view_df = view_df[view_df['Card_Name'].str.contains(search_query, case=False, na=False)]
     
-    if sort_by == "Highest Profit": view_df = view_df.sort_values('Profit', ascending=False)
-    elif sort_by == "Best ROI %": view_df = view_df.sort_values('ROI', ascending=False)
+    if sort_option == "Top Profit": view_df = view_df.sort_values('Net_Profit', ascending=False)
+    elif sort_option == "Top ROI %": view_df = view_df.sort_values('ROI_Pct', ascending=False)
+    elif sort_option == "Market Value": view_df = view_df.sort_values('Current_Price', ascending=False)
     else: view_df = view_df.sort_index(ascending=False)
 
-    for index, row in view_df.iterrows():
-        roi_color = "#00ffcc" if row['ROI'] >= 0 else "#ff4d4d"
+    # Collection Display
+    st.markdown(f"### 🖼️ Collection ({len(view_df)} Items)")
+    for idx, row in view_df.iterrows():
+        roi_clr = "#3fb950" if row['ROI_Pct'] >= 0 else "#f85149"
+        status_label = "Active" if row['Status'] != 'Sold' else "Liquidated"
         
-        with st.expander(f"{row['Card_Name']} ┃ {row['ROI']:+.1f}%", expanded=False):
-            d1, d2 = st.columns([0.4, 0.6])
-            with d1:
-                st.image(row['Image_URL'] if pd.notna(row['Image_URL']) and str(row['Image_URL']).startswith('http') else "https://via.placeholder.com/300/111", use_container_width=True)
-            with d2:
-                st.markdown(f"**Status:** `{row['Status'].upper()}`")
+        # Clickable Card Expander
+        with st.expander(f"{row['Card_Name']} ┃ {row['ROI_Pct']:+.1f}%", expanded=False):
+            c_left, c_right = st.columns([0.4, 0.6])
+            
+            with c_left:
+                img = row['Image_URL']
+                st.image(img if pd.notna(img) and str(img).startswith('http') else "https://via.placeholder.com/400x560/161b22/30363d?text=NO+IMAGE", use_container_width=True)
+            
+            with c_right:
+                st.markdown(f"#### Asset Breakdown")
                 
-                # FIXED LOGIC: Prevent AttributeError using max(value, 0.01)
-                safe_cost = max(row['Unit_Cost'], 0.01)
-                p_percent = min(max((row['Current_Val'] / safe_cost) * 50, 5), 100)
-                
+                # Visual Growth Meter
+                safe_cost_val = max(row['Unit_Cost'], 0.01)
+                meter_w = min(max((row['Current_Price'] / safe_cost_val) * 50, 5), 100)
                 st.markdown(f'''
+                    <div style="font-size:12px; color:#8b949e; margin-bottom:4px;">VALUE PROGRESSION</div>
                     <div class="p-bar-bg">
-                        <div class="p-bar-fill" style="width:{p_percent}%; background:{roi_color}; shadow: 0 0 10px {roi_color};"></div>
+                        <div class="p-bar-fill" style="width:{meter_w}%; background:{roi_clr}; box-shadow: 0 0 10px {roi_clr}44;"></div>
                     </div>
                 ''', unsafe_allow_html=True)
                 
+                # Data Grid
                 st.markdown(f"""
-                - **Quantity:** {int(row['Quantity'])}
-                - **Unit Cost:** ${row['Unit_Cost']:,.2f}
-                - **Market Price:** ${row['Current_Val']:,.2f}
-                - **Net Profit:** <span style="color:{roi_color}; font-weight:800;">${row['Profit']:,.2f}</span>
+                | Metric | Value |
+                | :--- | :--- |
+                | **Status** | `{status_label}` |
+                | **Quantity** | {int(row['Quantity'])} |
+                | **Unit Cost** | ${row['Unit_Cost']:,.2f} |
+                | **Live Price** | ${row['Current_Price']:,.2f} |
+                | **Net P/L** | <span style="color:{roi_clr};">${row['Net_Profit']:,.2f}</span> |
                 """, unsafe_allow_html=True)
                 
-                with st.popover("⚙️ QUICK EDIT"):
-                    with st.form(f"edit_{row['gsheet_row']}"):
-                        u_mkt = st.number_input("Market Price ($)", value=float(row['Market_Price']))
-                        u_sel = st.number_input("Sold For ($)", value=float(row['Sell_Price']))
-                        u_sta = st.selectbox("Status", ["Active", "Sold"], index=0 if row['Status'] != 'Sold' else 1)
-                        u_qty = st.number_input("Qty", value=int(row['Quantity']))
-                        u_fee = st.number_input("Grade Fee ($)", value=float(row['Grade_Fee']))
-                        u_grd = st.text_input("Grade Label", value=str(row['Grade_Score']))
-                        u_img = st.file_uploader("Update Photo", type=['jpg', 'png'])
+                # Pro Edit Popover
+                with st.popover("⚙️ MANAGE ASSET"):
+                    with st.form(f"edit_v12_{row['gsheet_row']}"):
+                        st.markdown("### Update Asset Data")
+                        ec1, ec2 = st.columns(2)
+                        with ec1:
+                            u_mkt = st.number_input("Market Price ($)", value=float(row['Market_Price']))
+                            u_qty = st.number_input("Quantity", value=int(row['Quantity']))
+                            u_sta = st.selectbox("Status", ["Active", "Sold"], index=0 if row['Status'] != 'Sold' else 1)
+                        with ec2:
+                            u_sel = st.number_input("Sale Price ($)", value=float(row['Sell_Price']))
+                            u_fee = st.number_input("Grading Fee ($)", value=float(row['Grade_Fee']))
+                            u_grd = st.text_input("Grade", value=str(row['Grade_Score']))
                         
-                        if st.form_submit_button("💾 UPDATE CLOUD"):
+                        u_img = st.file_uploader("Update Visual Proof", type=['jpg', 'png'])
+                        
+                        if st.form_submit_button("COMMIT TO CLOUD"):
                             client = get_gspread_client()
                             sh = client.open_by_url(SHEET_NAME_URL).sheet1
-                            r = int(row['gsheet_row'])
-                            sh.update_cell(r, 8, u_mkt); sh.update_cell(r, 11, u_sel); sh.update_cell(r, 12, u_sta)
-                            sh.update_cell(r, 5, u_qty); sh.update_cell(r, 9, u_grd); sh.update_cell(r, 7, u_fee)
+                            r_num = int(row['gsheet_row'])
+                            sh.update_cell(r_num, 8, u_mkt); sh.update_cell(r_num, 11, u_sel); sh.update_cell(r_num, 12, u_sta)
+                            sh.update_cell(r_num, 5, u_qty); sh.update_cell(r_num, 9, u_grd); sh.update_cell(r_num, 7, u_fee)
                             if u_img:
                                 url = upload_to_imgbb(u_img)
-                                if url: sh.update_cell(r, 10, url)
+                                if url: sh.update_cell(r_num, 10, url)
                             st.cache_data.clear(); st.rerun()
 
+    # Add New Asset Section
     st.divider()
     with st.expander("➕ REGISTER NEW ASSET", expanded=False):
-        with st.form("add_new_v11_1", clear_on_submit=True):
-            a_name = st.text_input("Card Name")
-            a_set = st.text_input("Set Name")
+        with st.form("add_v12", clear_on_submit=True):
+            st.markdown("### New Asset Intake")
+            a_name = st.text_input("Asset Name")
+            a_set = st.text_input("Collection / Set")
             ac1, ac2 = st.columns(2)
             with ac1:
-                a_buy = st.number_input("Buy ($)")
-                a_mkt = st.number_input("Market ($)")
+                a_buy = st.number_input("Purchase Price ($)")
+                a_mkt = st.number_input("Current Market ($)")
             with ac2:
-                a_qty = st.number_input("Qty", value=1)
-                a_fee = st.number_input("Fee ($)")
-            a_grd = st.text_input("Grade")
-            a_id = st.text_input("Serial ID")
-            a_file = st.file_uploader("Capture Photo", type=['jpg', 'png', 'jpeg'])
+                a_qty = st.number_input("Quantity", value=1)
+                a_fee = st.number_input("Grade/Slab Fee ($)")
+            
+            a_grd = st.text_input("Grade Score (e.g., PSA 10)")
+            a_id = st.text_input("Asset Serial ID")
+            a_file = st.file_uploader("Upload Visual Proof", type=['jpg', 'png', 'jpeg'])
             
             if st.form_submit_button("🚀 DEPLOY TO VAULT"):
                 if a_name and a_file:
@@ -163,6 +236,6 @@ if not df.empty:
                         sh = client.open_by_url(SHEET_NAME_URL).sheet1
                         sh.append_row([a_id, "Card", a_name, a_set, int(a_qty), a_buy, a_fee, a_mkt, a_grd, url, 0, "Active"])
                         st.cache_data.clear(); st.rerun()
-                else: st.warning("Name & Photo required.")
+                else: st.warning("Card Name and Photo are mandatory.")
 else:
-    st.info("Waiting for data...")
+    st.error("DATABASE CONNECTION OFFLINE. CHECK GOOGLE SHEET CONFIG.")

@@ -24,7 +24,7 @@ def upload_to_imgbb(file):
     except: return None
 
 # --- UI DESIGN ---
-st.set_page_config(page_title="VAULT PRO v13.2", layout="wide", page_icon="💎")
+st.set_page_config(page_title="VAULT PRO v13.3", layout="wide", page_icon="💎")
 
 st.markdown("""
     <style>
@@ -45,46 +45,57 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- DATA ENGINE (WITH COLUMN SHIELD) ---
+# --- DATA ENGINE (SAFE ACCESS MODE) ---
 @st.cache_data(ttl=5)
 def load_data():
     try:
         raw = pd.read_csv(SHEET_URL)
-        # Fix Column Names (ลบช่องว่างหัวท้าย)
-        raw.columns = raw.columns.str.strip()
-        
-        # COLUMN SHIELD: ตรวจสอบ Column ที่จำเป็น ถ้าไม่มีให้สร้างว่างไว้ก่อนป้องกันพัง
-        required_cols = ['Status', 'Quantity', 'Buy_Price', 'Grade_Fee', 'Market_Price', 'Sell_Price', 'Card_Name', 'Image_URL']
-        for col in required_cols:
-            if col not in raw.columns:
-                raw[col] = 0 if 'Price' in col or 'Fee' in col or 'Quantity' in col else "N/A"
+        raw.columns = raw.columns.str.strip() # ล้างชื่อ Column
 
-        raw['gsheet_row'] = raw.index + 2
-        
+        # ฟังก์ชันช่วยดึงข้อมูลแบบปลอดภัย
+        def safe_get(col_name, default_val=0):
+            if col_name in raw.columns:
+                return raw[col_name]
+            return pd.Series([default_val] * len(raw))
+
+        # สร้าง Column ที่จำเป็นแบบบังคับ (ถ้าไม่มีให้เป็น N/A หรือ 0)
+        processed = pd.DataFrame()
+        processed['gsheet_row'] = raw.index + 2
+        processed['Card_Name'] = safe_get('Card_Name', "Unknown Card")
+        processed['Status'] = safe_get('Status', "Active")
+        processed['Image_URL'] = safe_get('Image_URL', "")
+        processed['Quantity'] = safe_get('Quantity', 0)
+        processed['Buy_Price'] = safe_get('Buy_Price', 0)
+        processed['Grade_Fee'] = safe_get('Grade_Fee', 0)
+        processed['Market_Price'] = safe_get('Market_Price', 0)
+        processed['Sell_Price'] = safe_get('Sell_Price', 0)
+        processed['Grade_Score'] = safe_get('Grade_Score', "N/A")
+
         # Clean numeric strictly
         num_cols = ['Quantity', 'Buy_Price', 'Grade_Fee', 'Market_Price', 'Sell_Price']
         for col in num_cols:
-            raw[col] = (raw[col].astype(str).str.replace(r'[$, ]', '', regex=True).replace('', '0'))
-            raw[col] = pd.to_numeric(raw[col], errors='coerce').fillna(0)
+            processed[col] = (processed[col].astype(str).str.replace(r'[$, ]', '', regex=True).replace('', '0'))
+            processed[col] = pd.to_numeric(processed[col], errors='coerce').fillna(0)
         
-        # Core Logic
-        raw['Unit_Cost'] = raw['Buy_Price'] + raw['Grade_Fee']
-        raw['Total_Cost'] = raw['Unit_Cost'] * raw['Quantity']
-        raw['Current_Price'] = raw.apply(lambda x: x['Sell_Price'] if str(x['Status']).strip().lower() == 'sold' else x['Market_Price'], axis=1)
-        raw['Total_Value'] = raw['Current_Price'] * raw['Quantity']
-        raw['Net_Profit'] = raw['Total_Value'] - raw['Total_Cost']
-        raw['ROI_Pct'] = (raw['Net_Profit'] / raw['Total_Cost'].replace(0, 0.01)) * 100
-        return raw
+        # Core Calculations
+        processed['Unit_Cost'] = processed['Buy_Price'] + processed['Grade_Fee']
+        processed['Total_Cost'] = processed['Unit_Cost'] * processed['Quantity']
+        processed['Current_Price'] = processed.apply(lambda x: x['Sell_Price'] if str(x['Status']).strip().lower() == 'sold' else x['Market_Price'], axis=1)
+        processed['Total_Value'] = processed['Current_Price'] * processed['Quantity']
+        processed['Net_Profit'] = processed['Total_Value'] - processed['Total_Cost']
+        processed['ROI_Pct'] = (processed['Net_Profit'] / processed['Total_Cost'].replace(0, 0.01)) * 100
+        
+        return processed
     except Exception as e:
-        st.error(f"System Error: {e}")
+        st.error(f"System Offline: {e}")
         return pd.DataFrame()
 
 df = load_data()
 
-# --- TOP NAV ---
+# --- HEADER ---
 c1, c2 = st.columns([0.7, 0.3])
 with c1:
-    st.markdown("<h1 style='margin:0;'>VAULT 13.2</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='margin:0;'>VAULT 13.3</h1>", unsafe_allow_html=True)
 with c2:
     st.markdown('<div class="btn-sync">', unsafe_allow_html=True)
     if st.button("🔄 REFRESH"):
@@ -92,21 +103,21 @@ with c2:
     st.markdown('</div>', unsafe_allow_html=True)
 
 if not df.empty:
-    # Portfolio Stats
-    m1, m2, m3 = st.columns(3)
-    # ใช้ .get() เพื่อความปลอดภัยสูงสุด
-    status_col = df['Status'].astype(str).str.strip().lower()
-    active_mask = status_col != 'sold'
+    # Safe Status Check
+    status_series = df['Status'].astype(str).str.strip().lower()
+    active_mask = status_series != 'sold'
     
+    # Portfolio Metrics
+    m1, m2, m3 = st.columns(3)
     m1.metric("HOLDING", f"${df[active_mask]['Total_Value'].sum():,.2f}")
     m2.metric("TOTAL P/L", f"${df['Net_Profit'].sum():,.2f}", delta=f"{df['Net_Profit'].sum():+.0f}")
     m3.metric("ROI (%)", f"{(df['Net_Profit'].sum() / df['Total_Cost'].sum() * 100 if df['Total_Cost'].sum() > 0 else 0):+.1f}%")
 
     st.divider()
 
-    # Filters
+    # Tools
     sc1, sc2 = st.columns([0.6, 0.4])
-    q = sc1.text_input("🔍 Search Asset", placeholder="Card Name...")
+    q = sc1.text_input("🔍 Search Asset", placeholder="Enter name...")
     sort_by = sc2.selectbox("Order", ["Latest", "Profit ($)", "ROI %"])
 
     view_df = df.copy()
@@ -121,13 +132,14 @@ if not df.empty:
         with st.expander(f"{row['Card_Name']} ┃ ${row['Current_Price']:,.0f}", expanded=False):
             l_col, r_col = st.columns([0.4, 0.6])
             with l_col:
-                st.image(row['Image_URL'] if pd.notna(row['Image_URL']) and str(row['Image_URL']).startswith('http') else "https://via.placeholder.com/300/161b22/30363d", use_container_width=True)
+                img_url = row['Image_URL']
+                st.image(img_url if pd.notna(img_url) and str(img_url).startswith('http') else "https://via.placeholder.com/300/161b22/30363d?text=NO+IMAGE", use_container_width=True)
             with r_col:
                 safe_cost = max(row['Unit_Cost'], 0.01)
                 meter = min(max((row['Current_Price'] / safe_cost) * 50, 5), 100)
                 st.markdown(f'''
                     <div style="font-size:12px; color:#8b949e;">VALUATION PROGRESSION</div>
-                    <div class="p-bar-bg"><div class="p-bar-fill" style="width:{meter}%; background:{p_color}; shadow: 0 0 10px {p_color}44;"></div></div>
+                    <div class="p-bar-bg"><div class="p-bar-fill" style="width:{meter}%; background:{p_color}; box-shadow: 0 0 10px {p_color}44;"></div></div>
                     <p>Live: <b>${row['Current_Price']:,.2f}</b> | P/L: <span style="color:{p_color}; font-weight:800;">${row['Net_Profit']:,.2f}</span></p>
                 ''', unsafe_allow_html=True)
                 
@@ -139,7 +151,7 @@ if not df.empty:
                         u_qty = st.number_input("Qty", value=int(row['Quantity']))
                         u_fee = st.number_input("Grade Fee", value=float(row['Grade_Fee']))
                         u_grd = st.text_input("Grade", value=str(row['Grade_Score']))
-                        u_img = st.file_uploader("Update Photo", type=['jpg', 'png'])
+                        u_img = st.file_uploader("Update Image", type=['jpg', 'png'])
                         
                         st.markdown('<div class="btn-update">', unsafe_allow_html=True)
                         if st.form_submit_button("SAVE CHANGES"):
@@ -155,7 +167,7 @@ if not df.empty:
                         st.markdown('</div>', unsafe_allow_html=True)
                     
                     st.divider()
-                    confirm = st.checkbox(f"Delete {row['Card_Name']}?", key=f"d_{row['gsheet_row']}")
+                    confirm = st.checkbox(f"Delete Asset?", key=f"d_{row['gsheet_row']}")
                     st.markdown('<div class="btn-delete">', unsafe_allow_html=True)
                     if st.button("CONFIRM DELETE", key=f"b_{row['gsheet_row']}", disabled=not confirm):
                         client = get_gspread_client()
@@ -168,18 +180,18 @@ if not df.empty:
 
     # ADD NEW
     st.divider()
-    with st.expander("➕ ADD NEW ASSET"):
-        with st.form("add_v13_2", clear_on_submit=True):
-            a_name = st.text_input("Card Name")
-            a_set = st.text_input("Set Name")
-            a_buy = st.number_input("Purchase Price ($)")
-            a_mkt = st.number_input("Market Price ($)")
+    with st.expander("➕ REGISTER NEW"):
+        with st.form("add_v13_3", clear_on_submit=True):
+            a_name = st.text_input("Name")
+            a_set = st.text_input("Set")
+            a_buy = st.number_input("Buy ($)")
+            a_mkt = st.number_input("Market ($)")
             a_qty = st.number_input("Qty", value=1)
             a_fee = st.number_input("Grade Fee ($)")
             a_grd = st.text_input("Grade")
-            a_id = st.text_input("Serial ID")
-            a_file = st.file_uploader("Capture Photo", type=['jpg', 'png', 'jpeg'])
-            if st.form_submit_button("🚀 DEPLOY TO VAULT"):
+            a_id = st.text_input("ID")
+            a_file = st.file_uploader("Photo", type=['jpg', 'png', 'jpeg'])
+            if st.form_submit_button("🚀 DEPLOY"):
                 if a_name and a_file:
                     url = upload_to_imgbb(a_file)
                     if url:
@@ -188,4 +200,4 @@ if not df.empty:
                         sh.append_row([a_id, "Card", a_name, a_set, int(a_qty), a_buy, a_fee, a_mkt, a_grd, url, 0, "Active"])
                         st.cache_data.clear(); st.rerun()
 else:
-    st.info("Searching for data...")
+    st.info("Searching for Vault data...")

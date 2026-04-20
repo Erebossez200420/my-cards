@@ -23,49 +23,38 @@ def upload_to_imgbb(file):
         return res.json()['data']['url']
     except: return None
 
-# --- UI DESIGN SYSTEM v10 (IPHONE NATIVE FEEL) ---
-st.set_page_config(page_title="ULTRA VAULT", layout="wide", page_icon="📟")
+# --- UI DESIGN SYSTEM v11 (ULTRA MODERN DARK) ---
+st.set_page_config(page_title="PRO VAULT v11", layout="wide", page_icon="📈")
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
     
-    /* Clean Base */
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
-    .stApp { background-color: #0a0a0c; font-family: 'Plus Jakarta Sans', sans-serif; }
+    .stApp { background-color: #050505; font-family: 'Inter', sans-serif; }
     
-    /* Remove unnecessary lines from Streamlit */
-    hr { border: none !important; margin: 10px 0 !important; }
-    .stSelectbox div[data-baseweb="select"] { border: none !important; background: #16161a !important; border-radius: 12px !important; }
-    .stTextInput input { border: none !important; background: #16161a !important; border-radius: 12px !important; color: white !important; }
-
-    /* Premium Metric Style */
+    /* Global Text Visibility */
+    p, span, label, .stMarkdown { color: #FFFFFF !important; }
+    
+    /* Glassmorphism Cards */
+    .st-expander { background-color: #111111 !important; border: 1px solid #222 !important; border-radius: 20px !important; margin-bottom: 10px !important; }
+    
+    /* Metrics Box */
     [data-testid="stMetric"] {
-        background: #16161a; border-radius: 20px; padding: 20px; border: none !important;
+        background: linear-gradient(145deg, #0f0f0f, #1a1a1a);
+        border-radius: 20px; padding: 15px; border: 1px solid #333;
     }
-    [data-testid="stMetricValue"] { color: #00ffcc !important; font-weight: 800 !important; }
-    [data-testid="stMetricLabel"] { color: #8e8e93 !important; font-size: 13px !important; }
+    [data-testid="stMetricValue"] { color: #00f2ff !important; font-size: 28px !important; font-weight: 800 !important; }
 
-    /* iPhone Modern Card */
-    .card-box {
-        background: #16161a;
-        border-radius: 24px;
-        padding: 16px;
-        margin-bottom: 15px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    }
-    .card-title { color: #ffffff; font-size: 14px; font-weight: 700; height: 38px; overflow: hidden; margin-top: 10px; }
-    .card-price { color: #00ffcc; font-size: 22px; font-weight: 800; font-family: monospace; }
-    
-    /* Custom High Contrast Buttons */
+    /* Button Styling */
     .stButton button {
-        background: #00ffcc !important; color: #000000 !important;
-        border-radius: 16px !important; height: 3.8rem !important;
-        font-weight: 800 !important; border: none !important; width: 100% !important;
+        background: #00f2ff !important; color: #000 !important;
+        border-radius: 12px !important; font-weight: 800 !important; height: 3.5rem !important; width: 100%; border: none;
     }
     
-    /* Floating Action style for New Asset */
-    .add-btn button { background: #ffffff !important; color: #000000 !important; }
+    /* Custom Investment Bar */
+    .p-bar-bg { background: #222; height: 8px; border-radius: 10px; width: 100%; margin: 10px 0; overflow: hidden; }
+    .p-bar-fill { height: 100%; border-radius: 10px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -78,123 +67,121 @@ def load_data():
             if col in raw.columns:
                 raw[col] = pd.to_numeric(raw[col].astype(str).str.replace(',', '').str.replace('$', ''), errors='coerce').fillna(0)
         raw['gsheet_row'] = raw.index + 2
-        raw['Cost_Total'] = raw['Buy_Price'] + raw['Grade_Fee']
+        raw['Cost_Total'] = (raw['Buy_Price'] + raw['Grade_Fee']) * raw['Quantity']
+        raw['Unit_Cost'] = (raw['Buy_Price'] + raw['Grade_Fee'])
         raw['Current_Val'] = raw.apply(lambda x: x['Sell_Price'] if x['Status'] == 'Sold' else x['Market_Price'], axis=1)
-        raw['Profit'] = (raw['Current_Val'] - raw['Cost_Total']) * raw['Quantity']
-        raw['ROI'] = (raw['Profit'] / (raw['Cost_Total'] * raw['Quantity']).replace(0, 0.01)) * 100
+        raw['Current_Total_Val'] = raw['Current_Val'] * raw['Quantity']
+        raw['Profit'] = raw['Current_Total_Val'] - raw['Cost_Total']
+        raw['ROI'] = (raw['Profit'] / raw['Cost_Total'].replace(0, 0.01)) * 100
         return raw
     except: return pd.DataFrame()
 
 df = load_data()
 
-# --- HEADER & STATS ---
-st.markdown("<h2 style='text-align: center; margin-top: -20px;'>📟 VAULT TERMINAL</h2>", unsafe_allow_html=True)
+# --- TOP DASHBOARD CONTROLS ---
+c_head, c_refresh = st.columns([0.7, 0.3])
+with c_head:
+    st.markdown("<h1 style='margin:0;'>VAULT 11.0</h1>", unsafe_allow_html=True)
+with c_refresh:
+    if st.button("🔄 SYNC"):
+        st.cache_data.clear()
+        st.rerun()
 
 if not df.empty:
+    # Key Stats
     m1, m2, m3 = st.columns(3)
     active_df = df[df['Status'] != 'Sold']
-    m1.metric("VAULT", f"${(active_df['Cost_Total'] * active_df['Quantity']).sum():,.0f}")
-    m2.metric("PROFIT", f"${df['Profit'].sum():,.0f}", delta=f"{df['Profit'].sum():+.0f}")
-    m3.metric("ROI", f"{df['ROI'].mean():+.1f}%")
+    m1.metric("PORTFOLIO", f"${active_df['Current_Total_Val'].sum():,.0f}")
+    m2.metric("TOTAL P/L", f"${df['Profit'].sum():,.0f}", delta=f"{df['Profit'].sum():+.0f}")
+    m3.metric("ROI", f"{(df['Profit'].sum() / df['Cost_Total'].sum() * 100):+.1f}%")
 
     st.divider()
 
-    # --- SINGLE VIEW ARCHITECTURE ---
-    tab_view, tab_add = st.tabs(["🖼️ PORTFOLIO", "➕ ADD NEW"])
+    # Search & Filter
+    s1, s2 = st.columns([0.6, 0.4])
+    q = s1.text_input("🔍 Search Asset...", placeholder="Name, Set, Serial")
+    sort_by = s2.selectbox("Order", ["Latest", "Highest Profit", "Best ROI %"])
 
-    with tab_view:
-        # Mini Toolbar
-        t1, t2 = st.columns([0.6, 0.4])
-        query = t1.text_input("🔍 Search", placeholder="Find card...")
-        sort_opt = t2.selectbox("Sort", ["Latest", "ROI %", "Price"])
+    view_df = df.copy()
+    if q:
+        view_df = view_df[view_df['Card_Name'].str.contains(q, case=False, na=False)]
+    
+    if sort_by == "Highest Profit": view_df = view_df.sort_values('Profit', ascending=False)
+    elif sort_by == "Best ROI %": view_df = view_df.sort_values('ROI', ascending=False)
+    else: view_df = view_df.sort_index(ascending=False)
 
-        # Display Logic
-        view_df = df.copy()
-        if query:
-            view_df = view_df[view_df['Card_Name'].str.contains(query, case=False, na=False)]
+    # Asset Grid
+    st.markdown("### 🖼️ YOUR COLLECTION")
+    for index, row in view_df.iterrows():
+        # Title with ROI Badge
+        roi_color = "#00ffcc" if row['ROI'] >= 0 else "#ff4d4d"
         
-        if sort_opt == "ROI %": view_df = view_df.sort_values('ROI', ascending=False)
-        elif sort_opt == "Price": view_df = view_df.sort_values('Current_Val', ascending=False)
-        else: view_df = view_df.sort_index(ascending=False)
-
-        # Portfolio Grid
-        grid = st.columns(2)
-        for i in range(len(view_df)):
-            row = view_df.iloc[i]
-            with grid[i % 2]:
-                st.markdown(f'''
-                    <div class="card-box">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="color:{'#00ffcc' if row['Status'] != 'Sold' else '#ff4444'}; font-size:10px; font-weight:800;">● {row['Status'].upper()}</span>
-                            <span style="color:#ffffff; font-size:12px; font-weight:800;">{row['ROI']:+.1f}%</span>
-                        </div>
-                        <div class="card-title">{row['Card_Name']}</div>
-                ''', unsafe_allow_html=True)
+        # UI EXPANDER (Clickable Card)
+        with st.expander(f"{row['Card_Name']} ┃ {row['ROI']:+.1f}%", expanded=False):
+            d1, d2 = st.columns([0.4, 0.6])
+            
+            with d1:
+                st.image(row['Image_URL'] if pd.notna(row['Image_URL']) else "https://via.placeholder.com/300/111", use_container_width=True)
+            
+            with d2:
+                st.markdown(f"#### Asset Intelligence")
+                st.markdown(f"**Status:** `{row['Status'].upper()}`")
                 
-                st.image(row['Image_URL'] if pd.notna(row['Image_URL']) else "https://via.placeholder.com/300/16161a/333?text=NO+IMAGE", use_container_width=True)
-                
+                # Visual Profit Line
+                st.markdown(f"**Value Progression**")
+                p_percent = min(max((row['Current_Val'] / row['Unit_Cost'].replace(0, 0.01)) * 50, 5), 100)
                 st.markdown(f'''
-                        <div style="margin-top:10px; text-align:center;">
-                            <div class="card-price">${row['Current_Val']:,.2f}</div>
-                        </div>
+                    <div class="p-bar-bg">
+                        <div class="p-bar-fill" style="width:{p_percent}%; background:{roi_color};"></div>
                     </div>
                 ''', unsafe_allow_html=True)
                 
-                # THE MAGIC BUTTON: Edit inside the card
-                if st.button(f"EDIT DATA", key=f"edit_{row['gsheet_row']}"):
-                    st.session_state.edit_mode = row['gsheet_row']
+                st.markdown(f"""
+                - **Quantity:** {int(row['Quantity'])}
+                - **Unit Cost:** ${row['Unit_Cost']:,.2f}
+                - **Market Price:** ${row['Current_Val']:,.2f}
+                - **Net Profit:** <span style="color:{roi_color}; font-weight:800;">${row['Profit']:,.2f}</span>
+                """, unsafe_allow_html=True)
+                
+                # POP-OVER EDIT (Modern Way to Edit)
+                with st.popover("⚙️ QUICK EDIT"):
+                    with st.form(f"edit_{row['gsheet_row']}"):
+                        u_mkt = st.number_input("Market Price ($)", value=float(row['Market_Price']))
+                        u_sel = st.number_input("Sold For ($)", value=float(row['Sell_Price']))
+                        u_sta = st.selectbox("Status", ["Active", "Sold"], index=0 if row['Status'] != 'Sold' else 1)
+                        u_qty = st.number_input("Qty", value=int(row['Quantity']))
+                        u_fee = st.number_input("Grade Fee ($)", value=float(row['Grade_Fee']))
+                        u_grd = st.text_input("Grade Label", value=str(row['Grade_Score']))
+                        u_img = st.file_uploader("Update Image", type=['jpg', 'png'])
+                        
+                        if st.form_submit_button("💾 UPDATE CLOUD"):
+                            client = get_gspread_client()
+                            sh = client.open_by_url(SHEET_NAME_URL).sheet1
+                            r = int(row['gsheet_row'])
+                            sh.update_cell(r, 8, u_mkt); sh.update_cell(r, 11, u_sel); sh.update_cell(r, 12, u_sta)
+                            sh.update_cell(r, 5, u_qty); sh.update_cell(r, 9, u_grd); sh.update_cell(r, 7, u_fee)
+                            if u_img:
+                                url = upload_to_imgbb(u_img)
+                                if url: sh.update_cell(r, 10, url)
+                            st.cache_data.clear(); st.rerun()
 
-        # --- MODAL-STYLE EDIT OVERLAY ---
-        if 'edit_mode' in st.session_state:
-            target_row = df[df['gsheet_row'] == st.session_state.edit_mode].iloc[0]
-            st.markdown(f"### ⚙️ Managing: {target_row['Card_Name']}")
-            
-            with st.form("quick_edit"):
-                c1, c2 = st.columns(2)
-                with c1:
-                    u_mkt = st.number_input("Market Value ($)", value=float(target_row['Market_Price']))
-                    u_qty = st.number_input("Quantity", value=int(target_row['Quantity']))
-                    u_sta = st.selectbox("Status", ["Active", "Sold"], index=0 if target_row['Status'] != 'Sold' else 1)
-                with c2:
-                    u_sel = st.number_input("Sold For ($)", value=float(target_row['Sell_Price']))
-                    u_fee = st.number_input("Grade Fee ($)", value=float(target_row['Grade_Fee']))
-                    u_grd = st.text_input("Grade Score", value=str(target_row['Grade_Score']))
-                
-                u_img = st.file_uploader("Update Photo", type=['jpg', 'png'])
-                
-                eb1, eb2 = st.columns(2)
-                if eb1.form_submit_button("💾 SAVE CHANGES"):
-                    client = get_gspread_client()
-                    sh = client.open_by_url(SHEET_NAME_URL).sheet1
-                    r = int(target_row['gsheet_row'])
-                    sh.update_cell(r, 8, u_mkt); sh.update_cell(r, 11, u_sel); sh.update_cell(r, 12, u_sta)
-                    sh.update_cell(r, 5, u_qty); sh.update_cell(r, 9, u_grd); sh.update_cell(r, 7, u_fee)
-                    if u_img:
-                        url = upload_to_imgbb(u_img)
-                        if url: sh.update_cell(r, 10, url)
-                    del st.session_state.edit_mode
-                    st.cache_data.clear(); st.rerun()
-                
-                if eb2.form_submit_button("❌ CANCEL"):
-                    del st.session_state.edit_mode
-                    st.rerun()
-
-    with tab_add:
-        with st.form("add_new_iphone"):
-            st.subheader("➕ Register Asset")
+    # ADD NEW SECTION (Always at bottom for iPhone)
+    st.divider()
+    with st.expander("➕ REGISTER NEW ASSET", expanded=False):
+        with st.form("add_new_v11", clear_on_submit=True):
             a_name = st.text_input("Card Name")
             a_set = st.text_input("Set Name")
-            ac1, ac2 = st.columns(2)
-            with ac1:
+            c1, c2 = st.columns(2)
+            with c1:
                 a_buy = st.number_input("Buy ($)")
                 a_mkt = st.number_input("Market ($)")
-            with ac2:
+            with c2:
                 a_qty = st.number_input("Qty", value=1)
                 a_fee = st.number_input("Fee ($)")
             
-            a_grd = st.text_input("Grade Score")
+            a_grd = st.text_input("Grade")
             a_id = st.text_input("Serial ID")
-            a_file = st.file_uploader("Take Photo", type=['jpg', 'png', 'jpeg'])
+            a_file = st.file_uploader("Capture Photo", type=['jpg', 'png', 'jpeg'])
             
             if st.form_submit_button("🚀 DEPLOY TO VAULT"):
                 if a_name and a_file:
@@ -204,7 +191,5 @@ if not df.empty:
                         sh = client.open_by_url(SHEET_NAME_URL).sheet1
                         sh.append_row([a_id, "Card", a_name, a_set, int(a_qty), a_buy, a_fee, a_mkt, a_grd, url, 0, "Active"])
                         st.cache_data.clear(); st.rerun()
-                else: st.warning("Name & Photo required.")
-
 else:
-    st.info("VAULT DISCONNECTED. CHECK SHEETS.")
+    st.warning("PLEASE CHECK DATA CONNECTION.")
